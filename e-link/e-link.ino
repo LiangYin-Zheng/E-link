@@ -71,6 +71,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void mqttReconnect() {
+    const char* deviceCode = "01"; // 示例设备代码，可根据实际情况动态生成
+    String topic = "device/" + String(deviceCode) + "/cmd"; // 动态生成主题
 
     while (!mqttClient.connected()) { // 检查是否已连接
         Serial.print("Attempting MQTT connection...\r\n"); // 添加调试信息
@@ -78,13 +80,12 @@ void mqttReconnect() {
             Serial.println("MQTT connected\r\n"); // 添加调试信息
 
             // 连接成功后订阅主题
-            if (mqttClient.subscribe("test/topic")) { // 替换为你需要订阅的主题
-                Serial.println("Subscribed to test/topic");
+            if (mqttClient.subscribe(topic.c_str())) { // 动态生成的主题
+                Serial.println("Subscribed to topic: " + topic);
             } else {
-                Serial.println("Failed to subscribe to test/topic");
+                Serial.println("Failed to subscribe to topic: " + topic);
             }
-        }
-        else {
+        } else {
             Serial.print("failed, rc=");
             Serial.print(mqttClient.state()); // 打印错误代码
             Serial.println(" try again in 2 seconds");
