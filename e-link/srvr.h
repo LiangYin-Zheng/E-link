@@ -24,8 +24,8 @@
 #include "html.h"    // HTML page of the tool
 
 /* SSID and password of your WiFi net ----------------------------------------*/
-const char *ssid = "刘"; //"your ssid";
-const char *password = "15265531288ll";   //"your password";
+// const char *ssid = "your ssid"; //"your ssid";
+// const char *password = "your password";   //"your password";
 
 /* Static IP address Settings ------------------------------------------------*/
 IPAddress staticIP(192, 168, 1, 200);
@@ -43,35 +43,35 @@ bool isIndexPage = true; // true : GET  request, client needs 'index' page;
 /* Server initialization -------------------------------------------------------*/
 void Srvr__setup()
 {
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+    // Serial.println();
+    // Serial.println();
+    // Serial.print("Connecting to ");
+    //Serial.println(ssid);
 
-	if (WiFi.config(staticIP, gateway, subnet, dns, dns) == false) {
-		Serial.println("Configuration failed.");
-	}
+	// if (WiFi.config(staticIP, gateway, subnet, dns, dns) == false) {
+	// 	Serial.println("Configuration failed.");
+	// }
 
     // Applying SSID and password
-    WiFi.begin(ssid, password);
+    //WiFi.begin(ssid, password);
 
     // Waiting the connection to a router
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
+    // while (WiFi.status() != WL_CONNECTED) {
+    //     delay(500);
+    //     Serial.print(".");
+    // }
 
     // Connection is complete
-    Serial.println("");
+    // Serial.println("");
 
-    Serial.println("WiFi connected");
+    // Serial.println("WiFi connected");
 
-    // Start the server
-    server.begin();
-    Serial.println("Server started");
+    // // Start the server
+    // server.begin();
+    // Serial.println("Server started");
 
-    // Show obtained IP address in local Wifi net
-    Serial.println(myIP = WiFi.localIP());
+    // // Show obtained IP address in local Wifi net
+    // Serial.println(myIP = WiFi.localIP());
 }
 
 /* Sending a script to the client's browser ------------------------------------*/

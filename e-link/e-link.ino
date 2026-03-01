@@ -22,6 +22,8 @@
 #include <MD5Builder.h>
 #include <FS.h>
 #include <SPIFFS.h>
+// JPEG 解码库（安装库: "JPEGDecoder"）
+#include <JPEGDecoder.h>
 
 #define WIFI_SSID "刘"
 #define WIFI_PASS "15265531288ll"
@@ -149,17 +151,9 @@ void loop()
         mqttReconnect();
     }
     
-    //Serial.println("[DEBUG] Entering mqttClient.loop()");
     // 处理MQTT消息
     mqttClient.loop();
-    //Serial.println("[DEBUG] Exiting mqttClient.loop()");
-
-    // // 定时发布测试消息
-    // static unsigned long lastPub = 0;
-    // if (millis() - lastPub > 5000) {
-    //     mqttClient.publish("test/topic", "Hello from ESP32!")
-    //     lastPub = millis();
-    // }
+    
 }
 
 // 下载并验证图像数据
@@ -195,7 +189,8 @@ void downloadAndVerifyImage(const char* url, const char* expectedMd5) {
     stream->readBytes(buffer, size);
 
     Serial.println("[SUCCESS] Image downloaded and verified successfully.");
-    // 此处可以调用显示函数，例如：displayImage(buffer, size);
+    // 解码并只显示黑白到 4.2 寸墨水屏
+    displayImageBW(buffer, size);
 
     // 将图像数据保存到 SPIFFS 中的资源文件夹   
     //saveImageToResources("/image.jpg", buffer, size);
@@ -254,4 +249,134 @@ void listAllFiles() {
         Serial.println(file.name());
         file = root.openNextFile();
     }
+}
+
+// 仅黑白显示：解码 JPEG -> 缩放 -> 1-bit 黑色缓冲并发送
+void displayImageBW(uint8_t* jpgBuf, size_t jpgSize)
+{
+    const int WIDTH = 400;
+    const int HEIGHT = 300;
+    const int BYTES_PER_ROW = (WIDTH + 7) / 8; // 50
+    const int BUF_SIZE = BYTES_PER_ROW * HEIGHT; // 15000
+
+    uint8_t* bwBuf = (uint8_t*)malloc(BUF_SIZE);
+    if (!bwBuf) {
+        Serial.println("[ERROR] displayImageBW: malloc failed");
+        return;
+    }
+    memset(bwBuf, 0xFF, BUF_SIZE);
+
+    Serial.println("[DEBUG] Initializing EPD 4in2 V2 (BW)...");
+    EPD_Init_4in2_V2();
+
+    Serial.print("[DEBUG] Free heap before decode (bw-only): "); Serial.println(ESP.getFreeHeap());
+    if (!JpegDec.decodeArray(jpgBuf, jpgSize)) {
+        Serial.println("[ERROR] JPEG decode failed (bw-only)");
+        free(bwBuf);
+        return;
+    }
+    Serial.print("[DEBUG] JPEG decoded (bw-only). Image WxH: ");
+    Serial.print(JpegDec.width); Serial.print(" x "); Serial.println(JpegDec.height);
+
+    // 为减少缩放时产生的交替噪点，按目标图像行分块处理（stripe），
+    // 在每个目标像素块内统计黑/总采样数并按多数投票决定黑或白。
+    const int STRIPE_H = 4; // 每次处理的目标行数（可根据内存调整），较小以避免 malloc 失败
+    int srcW = JpegDec.width;
+    int srcH = JpegDec.height;
+    long blackCount = 0;
+
+    for (int stripeY = 0; stripeY < HEIGHT; stripeY += STRIPE_H) {
+        int curH = min(STRIPE_H, HEIGHT - stripeY);
+        size_t cntSize = (size_t)WIDTH * curH;
+        uint8_t* blackCnt = (uint8_t*)malloc(cntSize);
+        uint8_t* totalCnt = (uint8_t*)malloc(cntSize);
+        if (!blackCnt || !totalCnt) {
+            // 尝试退回到每次只处理 1 行以降低内存占用
+            if (blackCnt) free(blackCnt);
+            if (totalCnt) free(totalCnt);
+            int fallbackH = 1;
+            size_t fbSize = (size_t)WIDTH * fallbackH;
+            blackCnt = (uint8_t*)malloc(fbSize);
+            totalCnt = (uint8_t*)malloc(fbSize);
+            if (!blackCnt || !totalCnt) {
+                Serial.println("[ERROR] displayImageBW: stripe malloc failed (fallback)");
+                if (blackCnt) free(blackCnt);
+                if (totalCnt) free(totalCnt);
+                free(bwBuf);
+                return;
+            }
+            // 调整 curH 与 cntSize 以适配回退大小
+            curH = fallbackH;
+            cntSize = fbSize;
+        }
+        memset(blackCnt, 0, cntSize);
+        memset(totalCnt, 0, cntSize);
+
+        // 重新解码整张图，并只统计属于当前 stripe 的目标像素采样
+        if (!JpegDec.decodeArray(jpgBuf, jpgSize)) {
+            Serial.println("[ERROR] JPEG decode failed during stripe");
+            free(blackCnt); free(totalCnt); free(bwBuf);
+            return;
+        }
+        while (JpegDec.read()) {
+            int mcu_x = JpegDec.MCUx * JpegDec.MCUWidth;
+            int mcu_y = JpegDec.MCUy * JpegDec.MCUHeight;
+            int mcu_w = JpegDec.MCUWidth;
+            int mcu_h = JpegDec.MCUHeight;
+            void* pImgVoid = JpegDec.pImage;
+            uint8_t* pImage = reinterpret_cast<uint8_t*>(pImgVoid);
+
+            for (int yy = 0; yy < mcu_h; yy++) {
+                int py = mcu_y + yy;
+                if (py < 0 || py >= srcH) continue;
+                int ty = (py * HEIGHT) / srcH;
+                if (ty < stripeY || ty >= stripeY + curH) continue;
+                for (int xx = 0; xx < mcu_w; xx++) {
+                    int px = mcu_x + xx;
+                    if (px < 0 || px >= srcW) continue;
+                    int idx = (yy * mcu_w + xx) * 3;
+                    uint8_t r = pImage[idx + 0];
+                    uint8_t g = pImage[idx + 1];
+                    uint8_t b = pImage[idx + 2];
+                    uint16_t lum = (uint16_t)((r * 299 + g * 587 + b * 114) / 1000);
+                    int tx = (px * WIDTH) / srcW;
+                    int localY = ty - stripeY;
+                    int pos = localY * WIDTH + tx;
+                    if (pos < 0 || pos >= (int)cntSize) continue;
+                    totalCnt[pos]++;
+                    if (lum < 128) blackCnt[pos]++;
+                }
+            }
+        }
+
+        // 根据多数投票决定目标像素，并写入位图
+        for (int localY = 0; localY < curH; localY++) {
+            int ty = stripeY + localY;
+            for (int tx = 0; tx < WIDTH; tx++) {
+                int pos = localY * WIDTH + tx;
+                if (totalCnt[pos] == 0) continue; // 未采样，保留白
+                if ((int)blackCnt[pos] * 2 >= (int)totalCnt[pos]) {
+                    int byteIndex = ty * BYTES_PER_ROW + (tx / 8);
+                    uint8_t bitMask = 0x80 >> (tx & 7);
+                    bwBuf[byteIndex] &= ~bitMask;
+                    blackCount++;
+                }
+            }
+        }
+
+        free(blackCnt);
+        free(totalCnt);
+    }
+
+    Serial.print("[DEBUG] Black pixels marked (bw-only): "); Serial.println(blackCount);
+
+    // 写入并刷新（V2 驱动使用 0x24 写入）
+    EPD_SendCommand(0x24);
+    delay(2);
+    for (int i = 0; i < BUF_SIZE; i++) EPD_SendData(bwBuf[i]);
+
+    EPD_4IN2_V2_Show();
+
+    Serial.print("[DEBUG] Free heap after display (bw-only): "); Serial.println(ESP.getFreeHeap());
+    free(bwBuf);
 }
