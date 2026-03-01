@@ -27,8 +27,11 @@ void setup()
     Serial.begin(115200);
     delay(10);
 
+    // WiFi初始化
+    Wifi__setup();
+
     // Server initialization
-    // Srvr__setup();
+    Srvr__setup();
 
     // SPI initialization
     EPD_initSPI();
@@ -45,9 +48,6 @@ void setup()
     i = DEV_SPI_ReadByte();
     Serial.print("EPD: 硬件ID读取结果 = 0x");
     Serial.println(i, HEX);
-
-    // WiFi初始化
-    Wifi__setup();
 
     // MQTT客户端设置
     mqtt__setup();

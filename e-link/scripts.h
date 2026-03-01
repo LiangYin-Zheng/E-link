@@ -134,10 +134,50 @@ client.println(
     "getElm('nud_h').value=""+epdArr[index][1];\r\n"
     "epdInd=index;\r\n"
 "}\r\n");
-}
 
 void sendJS_B(WiFiClient client)
 {
+
+client.println(
+    "function buildIndexArray() {\r\n"
+    "var c = getElm('canvas');\r\n"
+    "if (!c) return alert('No processed image'), null;\r\n"
+    "var w = c.width;\r\n"
+    "var h = c.height;\r\n"
+    "var p = c.getContext('2d').getImageData(0, 0, w, h);\r\n"
+    "var a = new Array(w * h);\r\n"
+    "var i = 0;\r\n"
+    "for (var y = 0; y < h; y++)\r\n"
+    "    for (var x = 0; x < w; x++, i++) {\r\n"
+    "        var is7 = (typeof curPal !== 'undefined' && curPal.length == 7);\r\n"
+    "        var is6 = (typeof curPal !== 'undefined' && curPal.length == 6);\r\n"
+    "        if (is7) a[i] = getVal_7color(p, i << 2);\r\n"
+    "        else if (is6) a[i] = getVal_6color(p, i << 2);\r\n"
+    "        else a[i] = getVal(p, i << 2);\r\n"
+    "    }\r\n"
+    "return { arr: a, w: w, h: h };\r\n"
+    "}\r\n"
+    "function downloadImage() {\r\n"
+    "var res = buildIndexArray();\r\n"
+    "if (!res) return;\r\n"
+    "var a = res.arr;\r\n"
+    "var w = res.w;\r\n"
+    "var h = res.h;\r\n"
+    "var u = new Uint8Array(a.length);\r\n"
+    "for (var i = 0; i < a.length; i++) u[i] = a[i] & 0xFF;\r\n"
+    "var blob = new Blob([u], { type: 'application/octet-stream' });\r\n"
+    "var url = URL.createObjectURL(blob);\r\n"
+    "var name = 'image_' + w + 'x' + h + '.bin';\r\n"
+    "var link = document.createElement('a');\r\n"
+    "link.href = url;\r\n"
+    "link.download = name;\r\n"
+    "document.body.appendChild(link);\r\n"
+    "link.click();\r\n"
+    "document.body.removeChild(link);\r\n"
+    "URL.revokeObjectURL(url);\r\n"
+    "}\r\n"
+);
+
 client.println(
 "var source;\r\n"
 "var dX, dY, dW, dH, sW, sH;\r\n"
@@ -478,8 +518,8 @@ client.println(
         "return u_send('EPD'+String.fromCharCode(epdInd+97)+'_',false);\r\n"  
     "}\r\n"
 
-    "if ((epdInd==0)||(epdInd==3)||(epdInd==6)||(epdInd==7)||(epdInd==9)||(epdInd==12)||\
-		(epdInd==16)||(epdInd==19)||(epdInd==22)||(epdInd==26)||(epdInd==27)||(epdInd==28))\r\n"
+    "if ((epdInd==0)||(epdInd==3)||(epdInd==6)||(epdInd==7)||(epdInd==9)||(epdInd==12)||"
+    "(epdInd==16)||(epdInd==19)||(epdInd==22)||(epdInd==26)||(epdInd==27)||(epdInd==28))\r\n"
     "{\r\n"
         "xhReq.onload=xhReq.onerror=function()\r\n"
         "{\r\n"
@@ -566,3 +606,4 @@ client.println(
     "}\r\n"
 "}\r\n\r\n");
 }
+
