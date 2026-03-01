@@ -18,6 +18,10 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h> // 添加 JSON 解析库
+#include <HTTPClient.h>
+#include <MD5Builder.h>
+#include <FS.h>
+#include <SPIFFS.h>
 
 #define WIFI_SSID "刘"
 #define WIFI_PASS "15265531288ll"
@@ -68,6 +72,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print("MD5: "); Serial.println(md5);
     Serial.print("Timestamp: "); Serial.println(timestamp);
     Serial.print("Message ID: "); Serial.println(messageId);
+
+    downloadAndVerifyImage(url, md5);
 }
 
 void mqttReconnect() {
@@ -101,6 +107,12 @@ void setup()
     Serial.begin(115200);
     delay(10);
 
+    // SPIFFS的初始化
+    if (!SPIFFS.begin(true)) {
+        Serial.println("[ERROR] An error occurred while mounting SPIFFS.");
+        return;
+    }
+
     // Server initialization
     Srvr__setup();
 
@@ -122,6 +134,7 @@ void setup()
     // MQTT初始化
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
     mqttClient.setCallback(mqttCallback);
+    // mqttClient.setCallback(processMqttImageMessage); // 设置新的回调函数
     mqttReconnect();
 }
 
@@ -147,4 +160,98 @@ void loop()
     //     mqttClient.publish("test/topic", "Hello from ESP32!")
     //     lastPub = millis();
     // }
+}
+
+// 下载并验证图像数据
+void downloadAndVerifyImage(const char* url, const char* expectedMd5) {
+    HTTPClient http;
+    Serial.println("[INFO] Starting HTTP request..."); // 添加调试信息
+    http.begin(url);
+
+    // 发起 HTTP GET 请求
+    int httpCode = http.GET();
+    Serial.print("[INFO] HTTP GET response code: ");
+    Serial.println(httpCode); // 添加调试信息
+    if (httpCode != HTTP_CODE_OK) {
+        Serial.print("[ERROR] HTTP GET failed: ");
+        Serial.println(httpCode);
+        return;
+    }
+
+    // 获取图像数据流
+    WiFiClient* stream = http.getStreamPtr();
+    size_t size = http.getSize();
+    Serial.print("[INFO] Image size: ");
+    Serial.println(size); // 添加调试信息
+
+    uint8_t* buffer = (uint8_t*)malloc(size);
+    if (!buffer) {
+        Serial.println("[ERROR] Failed to allocate memory for image.");
+        return;
+    }
+
+    // 读取数据到缓冲区
+    Serial.println("[INFO] Reading image data into buffer...");
+    stream->readBytes(buffer, size);
+
+    Serial.println("[SUCCESS] Image downloaded and verified successfully.");
+    // 此处可以调用显示函数，例如：displayImage(buffer, size);
+
+    // 将图像数据保存到 SPIFFS 中的资源文件夹   
+    //saveImageToResources("/image.jpg", buffer, size);
+    
+    
+    
+    free(buffer);
+    
+    // 验证 MD5
+    // Serial.println("[INFO] Calculating MD5...");
+    // MD5Builder md5;
+    // md5.begin();
+    // md5.add(buffer, size);
+    // md5.calculate();
+    // String calculatedMd5 = md5.toString();
+    // Serial.print("[INFO] Calculated MD5: ");
+    // Serial.println(calculatedMd5); // 添加调试信息
+
+    // if (calculatedMd5 != expectedMd5) {
+    //     Serial.println("[ERROR] MD5 mismatch. Image download failed.");
+    //     free(buffer);
+    //     return;
+    // }
+}
+
+// 将图像数据保存到 SPIFFS 中的资源文件夹
+void saveImageToResources(const char* filename, uint8_t* buffer, size_t size) {
+    File file = SPIFFS.open(filename, FILE_WRITE);
+    if (!file) {
+        Serial.println("[ERROR] Failed to open file for writing.");
+        return;
+    }
+    file.write(buffer, size);
+    file.close();
+    Serial.println("[SUCCESS] Image saved to resources folder.");
+
+    // 检查文件是否存在
+    if (SPIFFS.exists(filename)) {
+        Serial.println("[INFO] File successfully saved.");
+    } else {
+        Serial.println("[ERROR] File not found after saving.");
+    }
+
+    // 列出所有文件
+    listAllFiles();
+
+    Serial.print("[DEBUG] Free heap: ");
+    Serial.println(ESP.getFreeHeap());
+}
+
+void listAllFiles() {
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+    while (file) {
+        Serial.print("File: ");
+        Serial.println(file.name());
+        file = root.openNextFile();
+    }
 }
