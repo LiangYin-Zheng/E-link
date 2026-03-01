@@ -36,6 +36,16 @@ void setup()
     // Initialization is complete
     Serial.print("\r\nOk!\r\n");
 
+    // 读取并打印墨水屏硬件ID
+    unsigned char i;
+    EPD_Reset(); // 复位
+    EPD_SendCommand(0x2F); // 读取硬件ID命令
+    delay(2);
+    digitalWrite(PIN_SPI_DC, HIGH); // 设置 DC 为数据模式，准备读取数据
+    i = DEV_SPI_ReadByte();
+    Serial.print("EPD: 硬件ID读取结果 = 0x");
+    Serial.println(i, HEX);
+
     // WiFi初始化
     Wifi__setup();
 
