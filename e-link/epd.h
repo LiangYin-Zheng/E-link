@@ -26,8 +26,8 @@
 /* SPI pin definition --------------------------------------------------------*/
 //#include "epd7in5_HD.h"
 
-#define PIN_SPI_SCK  13 // 恢复为13以匹配底层原理图和测试代码
-#define PIN_SPI_DIN  14 // 恢复为14以匹配底层原理图和测试代码
+#define PIN_SPI_SCK  13
+#define PIN_SPI_DIN  14
 #define PIN_SPI_CS   15
 #define PIN_SPI_BUSY 25//19
 #define PIN_SPI_RST  26//21
