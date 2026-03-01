@@ -107,7 +107,7 @@ void setup()
     Serial.begin(115200);
     delay(10);
 
-    // SPIFFS的初始化
+    // SPIFFS initialization
     if (!SPIFFS.begin(true)) {
         Serial.println("[ERROR] An error occurred while mounting SPIFFS.");
         return;
@@ -131,7 +131,7 @@ void setup()
     }
     Serial.println("WiFi connected");
 
-    // MQTT初始化
+    // MQTT客户端设置
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
     mqttClient.setCallback(mqttCallback);
     // mqttClient.setCallback(processMqttImageMessage); // 设置新的回调函数
