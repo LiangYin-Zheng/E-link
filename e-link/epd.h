@@ -695,20 +695,47 @@ void EPD_load_13in3E6()
 }
 
 /* Show image and turn to deep sleep mode (a-type, 4.2 and 2.7 e-Paper) ------*/
+/*
+ * 显示图像并进入深度睡眠模式（适用于A型、4.2寸和2.7寸墨水屏）
+ * 主要流程：
+ * 1. 刷新显示内容。
+ * 2. 等待刷新完成。
+ * 3. 发送休眠命令，使墨水屏进入低功耗状态。
+ * 适用范围：A型、4.2寸、2.7寸等常见黑白墨水屏。
+ */
 void EPD_showA() 
 {
-    // Refresh
+    // Refresh 刷新显示内容
+    // 设置显示更新控制寄存器，0xC4通常表示全刷+关电等操作
     EPD_Send_1(0x22, 0xC4);// DISPLAY_UPDATE_CONTROL_2
+
+    // 发送主激活命令，触发显示刷新
     EPD_SendCommand( 0x20);// MASTER_ACTIVATION
+
+    // 等待显示刷新完成，墨水屏忙信号变为0时继续
     EPD_SendCommand( 0xFF);// TERMINATE_FRAME_READ_WRITE
+
+    // 等待墨水屏空闲，确保刷新完成
     EPD_WaitUntilIdle();
 
-    // Sleep
+    // Sleep  进入睡眠模式
+    // 发送电源关闭命令，准备进入睡眠模式
     EPD_SendCommand(0x10);// DEEP_SLEEP_MODE
+
+    // 等待墨水屏空闲，确保进入睡眠模式。
     EPD_WaitUntilIdle();
 }
 
 /* Show image and turn to deep sleep mode (b-type, e-Paper) ------------------*/
+/*
+ * 显示图像并进入深度睡眠模式（适用于B型墨水屏）
+ * 主要流程：
+ * 1. 刷新显示内容。
+ * 2. 等待刷新完成。
+ * 3. 设置休眠相关寄存器，准备进入低功耗状态。
+ * 4. 发送电源关闭命令，进入睡眠模式。
+ * 适用范围：B型墨水屏，如部分双色墨水屏。
+ */
 void EPD_showB() 
 {
     // Refresh
@@ -773,7 +800,15 @@ void EPD_showD()
 #include "epd4in2.h"
 
 /* The set of pointers on 'init', 'load' and 'show' functions, title and code */
-struct EPD_dispInfo
+/*
+    * 'init'：指向对应型号墨水屏的初始化函数
+    * 'chBk'：指向黑色通道图像数据加载函数
+    * 'next'：切换通道代码，-1表示无切换，0x13表示切换到红色通道
+    * 'chRd'：指向红色通道图像数据加载函数（如果适用）
+    * 'show'：指向显示并进入睡眠模式的函数
+    * 'title'：墨水屏型号的标题字符串
+*/
+struct EPD_dispInfo // 描述墨水屏驱动参数的结构体
 {
     int(*init)(); // Initialization
     void(*chBk)();// Black channel loading
@@ -782,6 +817,7 @@ struct EPD_dispInfo
     void(*show)();// Show and sleep
     char*title;   // Title of an e-Paper
 };
+
 
 /* Array of sets describing the usage of e-Papers ----------------------------*/
 EPD_dispInfo EPD_dispMass[] =
@@ -793,50 +829,50 @@ EPD_dispInfo EPD_dispMass[] =
     { EPD_Init_2in13b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.13 inch b"	},// e 4
     { EPD_Init_2in13b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.13 inch c"	},// f 5
     { EPD_Init_2in13d,		EPD_loadA,		-1  ,	0,				EPD_showD,			"2.13 inch d"	},// g 6
-        // { EPD_Init_2in7,		EPD_loadA, 		1  ,	0,				EPD_showB,			"2.7 inch"		},// h 7
-        // { EPD_Init_2in7b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.7 inch b"	},// i 8
-        // { EPD_Init_2in9,		EPD_loadA,		-1  ,	0,				EPD_showA,			"2.9 inch"		},// j 9
-        // { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch b"	},// k 10
-        // { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch c"	},// l 11
-        // { EPD_Init_2in9d,		EPD_loadA,		-1  ,	0,				EPD_2IN9D_Show,		"2.9 inch d"	},// M 12
+// { EPD_Init_2in7,		EPD_loadA, 		1  ,	0,				EPD_showB,			"2.7 inch"		},// h 7
+// { EPD_Init_2in7b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.7 inch b"	},// i 8
+// { EPD_Init_2in9,		EPD_loadA,		-1  ,	0,				EPD_showA,			"2.9 inch"		},// j 9
+// { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch b"	},// k 10
+// { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch c"	},// l 11
+// { EPD_Init_2in9d,		EPD_loadA,		-1  ,	0,				EPD_2IN9D_Show,		"2.9 inch d"	},// M 12
     { EPD_Init_4in2_V2,		EPD_loadA,		-1  ,	0,				EPD_4IN2_V2_Show,	"4.2 inch"		},// N 13 -> 4.2 黑白完美版
     { EPD_Init_4in2_V2,		EPD_loadA,		0x26,	EPD_loadA,		EPD_4IN2_V2_Show,	"4.2 inch b"	},// O 14 -> 4.2b 黑白红三色完美版
     { EPD_Init_4in2b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"4.2 inch c"	},// P 15
-        // { EPD_5in83__init,		EPD_loadD,		-1  ,	0,				EPD_showC,			"5.83 inch"		},// Q 16
-        // { EPD_5in83b__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"5.83 inch b"	},// R 17
-        // { EPD_5in83b__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"5.83 inch c"	},// S 18
-        // { EPD_7in5__init,		EPD_loadD,		-1  ,	0,				EPD_showC,			"7.5 inch"		},// T 19    
-        // { EPD_7in5__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"7.5 inch b"	},// u 20
-        // { EPD_7in5__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"7.5 inch c"	},// v 21
-        // { EPD_7in5_V2_init,		EPD_loadAFilp,	-1  ,	0,				EPD_7IN5_V2_Show,	"7.5 inch V2"	},// w 22
-        // { EPD_7in5B_V2_Init,	EPD_loadA,		0x13,	EPD_loadAFilp,	EPD_7IN5_V2_Show,	"7.5 inch B V2"	},// x 23
-        // { EPD_7IN5B_HD_init,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_7IN5B_HD_Show,	"7.5 inch B HD"	},// y 24
-        // { EPD_5IN65F_init,		EPD_loadG,		-1  ,	0,				EPD_5IN65F_Show,	"5.65 inch F "	},// z 25
-        // { EPD_7IN5_HD_init,		EPD_loadA,		-1	,	0,				EPD_7IN5_HD_Show,	"7.5 inch HD"	},// A 26
-        // { EPD_3IN7_1Gray_Init,	EPD_loadA,		-1	,	0,				EPD_3IN7_1Gray_Show,"3.7 inch"		},// 27
-        // { EPD_2IN66_Init,		EPD_loadA,		-1	,	0,				EPD_2IN66_Show,		"2.66 inch"		},// 28
-        // { EPD_5in83b_V2_init,	EPD_loadA,		0x13,	EPD_loadAFilp,	EPD_showC,			"5.83 inch B V2"},// 29
-        // { EPD_Init_2in9b_V3,	EPD_loadA,		0x13,	EPD_loadA,		EPD_showC,			"2.9 inch B V3"	},// 30
-        // { EPD_1IN54B_V2_Init,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_1IN54B_V2_Show,	"1.54 inch B V2"},// 31
-        // { EPD_2IN13B_V3_Init,	EPD_loadA,		0x13,	EPD_loadA,		EPD_2IN13B_V3_Show,	"2.13 inch B V3"},// 32
-        // { EPD_Init_2in9_V2, 	EPD_loadA,		-1,		0,				EPD_2IN9_V2_Show,	"2.9 inch V2"	},// 33
+// { EPD_5in83__init,		EPD_loadD,		-1  ,	0,				EPD_showC,			"5.83 inch"		},// Q 16
+// { EPD_5in83b__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"5.83 inch b"	},// R 17
+// { EPD_5in83b__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"5.83 inch c"	},// S 18
+// { EPD_7in5__init,		EPD_loadD,		-1  ,	0,				EPD_showC,			"7.5 inch"		},// T 19    
+// { EPD_7in5__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"7.5 inch b"	},// u 20
+// { EPD_7in5__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"7.5 inch c"	},// v 21
+// { EPD_7in5_V2_init,		EPD_loadAFilp,	-1  ,	0,				EPD_7IN5_V2_Show,	"7.5 inch V2"	},// w 22
+// { EPD_7in5B_V2_Init,	EPD_loadA,		0x13,	EPD_loadAFilp,	EPD_7IN5_V2_Show,	"7.5 inch B V2"	},// x 23
+// { EPD_7IN5B_HD_init,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_7IN5B_HD_Show,	"7.5 inch B HD"	},// y 24
+// { EPD_5IN65F_init,		EPD_loadG,		-1  ,	0,				EPD_5IN65F_Show,	"5.65 inch F "	},// z 25
+// { EPD_7IN5_HD_init,		EPD_loadA,		-1	,	0,				EPD_7IN5_HD_Show,	"7.5 inch HD"	},// A 26
+// { EPD_3IN7_1Gray_Init,	EPD_loadA,		-1	,	0,				EPD_3IN7_1Gray_Show,"3.7 inch"		},// 27
+// { EPD_2IN66_Init,		EPD_loadA,		-1	,	0,				EPD_2IN66_Show,		"2.66 inch"		},// 28
+// { EPD_5in83b_V2_init,	EPD_loadA,		0x13,	EPD_loadAFilp,	EPD_showC,			"5.83 inch B V2"},// 29
+// { EPD_Init_2in9b_V3,	EPD_loadA,		0x13,	EPD_loadA,		EPD_showC,			"2.9 inch B V3"	},// 30
+// { EPD_1IN54B_V2_Init,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_1IN54B_V2_Show,	"1.54 inch B V2"},// 31
+// { EPD_2IN13B_V3_Init,	EPD_loadA,		0x13,	EPD_loadA,		EPD_2IN13B_V3_Show,	"2.13 inch B V3"},// 32
+// { EPD_Init_2in9_V2, 	EPD_loadA,		-1,		0,				EPD_2IN9_V2_Show,	"2.9 inch V2"	},// 33
     { EPD_Init_4in2b_V2,	EPD_loadA,		-1  ,	EPD_4IN2B_V2_load,EPD_4IN2B_V2_Show,"4.2 inch b V2"	},// 34
-        // { EPD_2IN66B_Init,		EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_2IN66_Show,		"2.66 inch b"	},// 35
-        // { EPD_Init_5in83_V2,	EPD_loadAFilp,	-1,		0,				EPD_showC,			"5.83 inch V2"	},// 36
-        // { EPD_4IN01F_init,		EPD_loadG,		-1,		0,				EPD_4IN01F_Show,	"4.01 inch f"	},// 37
-        // { EPD_Init_2in7b_V2,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_Show_2in7b_V2,	"2.7 inch B V2"	},// 38
-        // { EPD_Init_2in13_V3,	EPD_loadC,		-1, 	0, 				EPD_2IN13_V3_Show, 	"2.13 inch V3"	},// 39
-        // { EPD_2IN13B_V4_Init,	EPD_loadA,		0x26,	EPD_loadA,		EPD_2IN13B_V4_Show, "2.13 inch B V4"},// 40
-        // { EPD_3IN52_Init,	    EPD_loadA,		-1,	    0,		        EPD_3IN52_Show,     "3.52 inch"     },// 41
-        // { EPD_2IN7_V2_Init,		EPD_loadA, 		-1  ,	0,				EPD_2IN7_V2_Show,	"2.7 inch V2"	},// 42
-        // { EPD_Init_2in13_V4,	EPD_loadC, 		-1  ,	0,				EPD_2IN13_V4_Show,	"2.13 inch V4"	},// 43
+// { EPD_2IN66B_Init,		EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_2IN66_Show,		"2.66 inch b"	},// 35
+// { EPD_Init_5in83_V2,	EPD_loadAFilp,	-1,		0,				EPD_showC,			"5.83 inch V2"	},// 36
+// { EPD_4IN01F_init,		EPD_loadG,		-1,		0,				EPD_4IN01F_Show,	"4.01 inch f"	},// 37
+// { EPD_Init_2in7b_V2,	EPD_loadA,		0x26,	EPD_loadAFilp,	EPD_Show_2in7b_V2,	"2.7 inch B V2"	},// 38
+// { EPD_Init_2in13_V3,	EPD_loadC,		-1, 	0, 				EPD_2IN13_V3_Show, 	"2.13 inch V3"	},// 39
+// { EPD_2IN13B_V4_Init,	EPD_loadA,		0x26,	EPD_loadA,		EPD_2IN13B_V4_Show, "2.13 inch B V4"},// 40
+// { EPD_3IN52_Init,	    EPD_loadA,		-1,	    0,		        EPD_3IN52_Show,     "3.52 inch"     },// 41
+// { EPD_2IN7_V2_Init,		EPD_loadA, 		-1  ,	0,				EPD_2IN7_V2_Show,	"2.7 inch V2"	},// 42
+// { EPD_Init_2in13_V4,	EPD_loadC, 		-1  ,	0,				EPD_2IN13_V4_Show,	"2.13 inch V4"	},// 43
     { EPD_Init_4in2_V2,	    EPD_loadA, 		-1  ,	0,				EPD_4IN2_V2_Show,	"4.2 inch V2"	},// 44
-        // { EPD_13in3k_init,	    EPD_loadA, 		-1  ,	0,				EPD_13in3k_Show,	"13.3 inch K"	},// 45
-        // { EPD_4in26_init,	    EPD_loadA, 		-1  ,	0,				EPD_4in26_Show,	    "4.26 inch"	    },// 46
-        // { EPD_Init_2in9b_V4,    EPD_loadA, 		0x26,	EPD_loadAFilp,	EPD_2in9b_V4_Show,	"2.9 inch b V4" },// 47
-        // { EPD_13in3b_init,      EPD_loadA, 		0x26,	EPD_loadAFilp,	EPD_13in3b_Show ,	"13.3 inch b"   },// 48
-        // { EPD_7in3E_init,       EPD_loadG, 		-1,	    0,	            EPD_7in3E_Show ,	"7.3 inch E"    },// 49
-        // { EPD_13in3E_init,      EPD_load_13in3E6, -1,   EPD_load_13in3E6, EPD_13in3E_Show , "13.3 inch E"   },// 50
+// { EPD_13in3k_init,	    EPD_loadA, 		-1  ,	0,				EPD_13in3k_Show,	"13.3 inch K"	},// 45
+// { EPD_4in26_init,	    EPD_loadA, 		-1  ,	0,				EPD_4in26_Show,	    "4.26 inch"	    },// 46
+// { EPD_Init_2in9b_V4,    EPD_loadA, 		0x26,	EPD_loadAFilp,	EPD_2in9b_V4_Show,	"2.9 inch b V4" },// 47
+// { EPD_13in3b_init,      EPD_loadA, 		0x26,	EPD_loadAFilp,	EPD_13in3b_Show ,	"13.3 inch b"   },// 48
+// { EPD_7in3E_init,       EPD_loadG, 		-1,	    0,	            EPD_7in3E_Show ,	"7.3 inch E"    },// 49
+// { EPD_13in3E_init,      EPD_load_13in3E6, -1,   EPD_load_13in3E6, EPD_13in3E_Show , "13.3 inch E"   },// 50
 };
 
 /* Initialization of an e-Paper ----------------------------------------------*/
@@ -847,14 +883,15 @@ EPD_dispInfo EPD_dispMass[] =
 void EPD_dispInit()
 {
     // Call initialization function
-    EPD_dispMass[EPD_dispIndex].init();
+    EPD_dispMass[EPD_dispIndex].init(); // 调用当前索引对应的墨水屏初始化函数
 
     // Set loading function for black channel
-    EPD_dispLoad = EPD_dispMass[EPD_dispIndex].chBk;
+    EPD_dispLoad = EPD_dispMass[EPD_dispIndex].chBk; // 设置当前图像加载函数指针为黑色通道加载函数
 
     // Set initial coordinates
-    EPD_dispX = 0;
-    EPD_dispY = 0;
+    // 对于部分型号，初始化当前像素坐标为(0, 0)，准备逐行/逐列写入图像数据
+    EPD_dispX = 0; // 初始化当前像素坐标X为0
+    EPD_dispY = 0; // 初始化当前像素坐标Y为0
 
     // The inversion of image data bits isn't needed by default
     EPD_invert = false;
