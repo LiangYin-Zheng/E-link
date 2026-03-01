@@ -66,12 +66,12 @@ void Srvr__setup()
 
     // Serial.println("WiFi connected");
 
-    // // Start the server
-    // server.begin();
-    // Serial.println("Server started");
+    // Start the server
+    server.begin();
+    Serial.println("Server started");
 
-    // // Show obtained IP address in local Wifi net
-    // Serial.println(myIP = WiFi.localIP());
+    // Show obtained IP address in local Wifi net   
+    Serial.println(myIP = WiFi.localIP());
 }
 
 /* Sending a script to the client's browser ------------------------------------*/

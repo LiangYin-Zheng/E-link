@@ -1,26 +1,28 @@
 /**
-  ******************************************************************************
-  * @file    epd.h
-  * @author  Waveshare Team
-  * @version V1.0.0
-  * @date    23-January-2018
-  * @brief   This file provides e-Paper driver functions
-  * void EPD_SendCommand(byte command);
-  * void EPD_SendData(byte data);
-  * void EPD_WaitUntilIdle();
-  * void EPD_Send_1(byte c, byte v1);
-  * void EPD_Send_2(byte c, byte v1, byte v2);
-  * void EPD_Send_3(byte c, byte v1, byte v2, byte v3);
-  * void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4);
-  * void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5);
-  * void EPD_Reset();
-  * void EPD_dispInit();
-  * * varualbes:
-  * EPD_dispLoad;                - pointer on current loading function
-  * EPD_dispIndex;               - index of current e-Paper
-  * EPD_dispInfo EPD_dispMass[]; - array of e-Paper properties
-  * ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    epd.h
+ * @author  Waveshare Team
+ * @version V1.0.0
+ * @date    23-January-2018
+ * @brief   This file provides e-Paper driver functions
+ * void EPD_SendCommand(byte command);
+ * void EPD_SendData(byte data);
+ * void EPD_WaitUntilIdle();
+ * void EPD_Send_1(byte c, byte v1);
+ * void EPD_Send_2(byte c, byte v1, byte v2);
+ * void EPD_Send_3(byte c, byte v1, byte v2, byte v3);
+ * void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4);
+ * void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5);
+ * void EPD_Reset();
+ * void EPD_dispInit();
+ * * varualbes:
+ * EPD_dispLoad;                - pointer on current loading function
+ * EPD_dispIndex;               - index of current e-Paper
+ * EPD_dispInfo EPD_dispMass[]; - array of e-Paper properties
+ * ******************************************************************************
+ */
+#ifndef _EPD_H_
+#define _EPD_H_
 /* SPI pin definition --------------------------------------------------------*/
 //#include "epd7in5_HD.h"
 
@@ -747,3 +749,5 @@ void EPD_dispInit()
     // The inversion of image data bits isn't needed by default
     EPD_invert = false;
 }
+
+#endif // _EPD_H_

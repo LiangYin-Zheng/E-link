@@ -9,6 +9,9 @@
   ******************************************************************************
   */
 
+#ifndef _EPD4IN2_H_
+#define _EPD4IN2_H_
+
 unsigned char lut_dc_4in2[] = 
 {
     0x00, 0x17, 0x00, 0x00, 0x00, 0x02, 0x00, 0x17, 0x17, 0x00, 0x00, 
@@ -270,3 +273,5 @@ void EPD_4IN2B_V2_Show(void)
         EPD_Send_1(0X07, 0xf7);  	//deep sleep
     }
 }
+
+#endif // _EPD4IN2_H_
