@@ -134,10 +134,39 @@ client.println(
     "getElm('nud_h').value=""+epdArr[index][1];\r\n"
     "epdInd=index;\r\n"
 "}\r\n");
-}
 
 void sendJS_B(WiFiClient client)
 {
+
+"function buildIndexArray(){\r\n"
+" var c=getElm('canvas');\r\n"
+" if(!c){alert('No processed image');return null;}\r\n"
+" var w=c.width; var h=c.height;\r\n"
+" var p=c.getContext('2d').getImageData(0,0,w,h);\r\n"
+" var a=new Array(w*h);\r\n"
+" var i=0;\r\n"
+" for(var y=0;y<h;y++) for(var x=0;x<w;x++,i++){\r\n"
+"  var is7 = (typeof curPal !== 'undefined' && curPal.length==7);\r\n"
+"  var is6 = (typeof curPal !== 'undefined' && curPal.length==6);\r\n"
+"  if(is7) a[i]=getVal_7color(p,i<<2);\r\n"
+"  else if(is6) a[i]=getVal_6color(p,i<<2);\r\n"
+"  else a[i]=getVal(p,i<<2);\r\n"
+" }\r\n"
+" return {arr:a,w:w,h:h};\r\n"
+"}\r\n"
+"function downloadImage(){\r\n"
+" var res=buildIndexArray();\r\n"
+" if(!res) return;\r\n"
+" var a=res.arr; var w=res.w; var h=res.h;\r\n"
+" var u=new Uint8Array(a.length);\r\n"
+" for(var i=0;i<a.length;i++) u[i]=a[i]&0xFF;\r\n"
+" var blob=new Blob([u],{type:'application/octet-stream'});\r\n"
+" var url=URL.createObjectURL(blob);\r\n"
+" var name='image_'+w+'x'+h+'.bin';\r\n"
+" var link=document.createElement('a');\r\n"
+" link.href=url; link.download=name; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);\r\n"
+"}\r\n"
+"}\r\n\r\n");\r\n}\r\n
 client.println(
 "var source;\r\n"
 "var dX, dY, dW, dH, sW, sH;\r\n"
