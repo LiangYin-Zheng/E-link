@@ -48,6 +48,12 @@ void setup()
     i = DEV_SPI_ReadByte();
     Serial.print("EPD: 硬件ID读取结果 = 0x");
     Serial.println(i, HEX);
+<<<<<<< HEAD
+=======
+
+    // WiFi初始化
+    Wifi__setup();
+>>>>>>> 67f2449fca451c306aa2551944eb88f872730283
 
     // MQTT客户端设置
     mqtt__setup();
