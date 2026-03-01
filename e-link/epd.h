@@ -820,6 +820,17 @@ struct EPD_dispInfo // 描述墨水屏驱动参数的结构体
 
 
 /* Array of sets describing the usage of e-Papers ----------------------------*/
+/*
+    * 该数组包含多个元素，每个元素描述一种墨水屏型号的驱动参数和函数指针。
+    * 通过修改 EPD_dispIndex 的值，可以切换不同型号的墨水屏驱动。
+    * 每个元素包括：
+    * - init：初始化函数指针
+    * - chBk：黑色通道图像数据加载函数指针
+    * - next：切换通道代码，-1表示无切换，0x13表示切换到红色通道
+    * - chRd：红色通道图像数据加载函数指针（如果适用）
+    * - show：显示并进入睡眠模式的函数指针
+    * - title：墨水屏型号的标题字符串
+*/
 EPD_dispInfo EPD_dispMass[] =
 {
     { EPD_Init_1in54,		EPD_loadA,		-1  ,	0,				EPD_1IN54_Show,		"1.54 inch"		},// a 0
@@ -835,8 +846,8 @@ EPD_dispInfo EPD_dispMass[] =
 // { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch b"	},// k 10
 // { EPD_Init_2in9b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"2.9 inch c"	},// l 11
 // { EPD_Init_2in9d,		EPD_loadA,		-1  ,	0,				EPD_2IN9D_Show,		"2.9 inch d"	},// M 12
-    { EPD_Init_4in2_V2,		EPD_loadA,		-1  ,	0,				EPD_4IN2_V2_Show,	"4.2 inch"		},// N 13 -> 4.2 黑白完美版
-    { EPD_Init_4in2_V2,		EPD_loadA,		0x26,	EPD_loadA,		EPD_4IN2_V2_Show,	"4.2 inch b"	},// O 14 -> 4.2b 黑白红三色完美版
+    { EPD_Init_4in2b_V2,	EPD_loadA,		-1  ,	0,				EPD_4IN2B_V2_Show,	"4.2 inch"		},// N 13 -> 4.2 黑白完美版
+    { EPD_Init_4in2b_V2,	EPD_loadA,		0x13,	EPD_4IN2B_V2_load,		EPD_4IN2B_V2_Show,	"4.2 inch b"	},// O 14 -> 4.2b 黑白红三色完美版
     { EPD_Init_4in2b,		EPD_loadA,		0x13,	EPD_loadA,		EPD_showB,			"4.2 inch c"	},// P 15
 // { EPD_5in83__init,		EPD_loadD,		-1  ,	0,				EPD_showC,			"5.83 inch"		},// Q 16
 // { EPD_5in83b__init,		EPD_loadE,		-1  ,	0,				EPD_showC,			"5.83 inch b"	},// R 17
