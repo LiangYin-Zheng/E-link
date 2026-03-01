@@ -6,6 +6,25 @@
   * @date    23-January-2018
   * @brief   This file describes initialisation of 4.2 and 4.2b e-Papers
   *
+  * 所有函数说明：
+  * int EPD_Init_4in2();          // 初始化4.2英寸黑白墨水屏
+  * int EPD_Init_4in2_V2();       // 初始化4.2英寸V2版本墨水屏
+  * void EPD_4IN2_V2_Show();       // 4.2英寸V2墨水屏显示刷新并进入休眠模式
+  * 
+  * 主要变量说明：
+  * unsigned char lut_dc_4in2[];    // 4.2英寸墨水屏的VCOM LUT数据
+  * unsigned char lut_ww_4in2[];    // 4.2英寸墨水屏的白转白LUT数据
+  * unsigned char lut_bw_4in2[];    // 4.2英寸墨水屏的黑转白LUT数据
+  * unsigned char lut_bb_4in2[];    // 4.2英寸墨水屏的黑转黑LUT数据
+  * unsigned char lut_wb_4in2[];    // 4.2英寸墨水屏的白转黑LUT数据
+  * unsigned char lut_dc_4in2b[];   // 4.2b版本墨水屏的VCOM LUT数据
+  * unsigned char lut_ww_4in2b[];   // 4.2b版本墨水屏的白转白LUT数据
+  * unsigned char lut_bw_4in2b[];   // 4.2b版本墨水屏的黑转白LUT数据
+  * unsigned char lut_bb_4in2b[];   // 4.2b版本墨水屏的黑转黑LUT数据
+  * unsigned char lut_wb_4in2b[];   // 4.2b版本墨水屏的白转黑LUT数据
+  * flag;                          // 用于控制显示流程的标志变量
+  * 本文件为4.2英寸墨水屏的驱动实现，包含了初始化函数、显示函数以及相关的LUT数据定义。
+  * 
   ******************************************************************************
   */
 
@@ -54,83 +73,94 @@ unsigned char lut_wb_4in2[] =
 
 static char flag;
 
+// =============================
+// 函数：EPD_Init_4in2
+// 作用：初始化4.2英寸墨水屏（黑白），配置电源、面板、分辨率、LUT等参数，并清屏。
+// =============================
 int EPD_Init_4in2() 
 {
-    EPD_Reset();
+    EPD_Reset(); // 复位墨水屏
     
-    EPD_SendCommand(0x01);//POWER_SETTING
+    EPD_SendCommand(0x01);//POWER_SETTING 电源设置
     EPD_SendData(0x03);   // VDS_EN, VDG_EN
     EPD_SendData(0x00);   // VCOM_HV, VGHL_LV[1], VGHL_LV[0]
     EPD_SendData(0x2F);   // VDH
     EPD_SendData(0x2F);   // VDL
     EPD_SendData(0xFF);   // VDHR
     
-    EPD_Send_3(0x06, 0x17, 0x17, 0x17);//BOOSTER_SOFT_START
-    EPD_SendCommand(0x04);//POWER_ON
-    EPD_WaitUntilIdle();
+    EPD_Send_3(0x06, 0x17, 0x17, 0x17);//BOOSTER_SOFT_START 启动升压电路
+    EPD_SendCommand(0x04);//POWER_ON 上电
+    EPD_WaitUntilIdle();  // 等待空闲
     
-    EPD_Send_2(0x00, 0xBF, 0x0B);//PANEL_SETTING: // KW-BF   KWR-AF  BWROTP 0f
-    EPD_Send_1(0x30, 0x3C);//PLL_CONTROL: 3A 100HZ, 29 150Hz, 39 200HZ, 31 171HZ
+    EPD_Send_2(0x00, 0xBF, 0x0B);//PANEL_SETTING 面板设置
+    EPD_Send_1(0x30, 0x3C);//PLL_CONTROL 时钟设置
 
-    EPD_Send_4(0x61, 1, 144, 1, 44);// RESOLUTION_SETTING: HI(W), LO(W), HI(H), LO(H)  
-    EPD_Send_1(0x82, 0x12);// VCM_DC_SETTING                   
-    EPD_Send_1(0x50, 0x97);// VCOM_AND_DATA_INTERVAL_SETTING: VBDF 17|D7 VBDW 97  VBDB 57  VBDF F7  VBDW 77  VBDB 37  VBDR B7
+    EPD_Send_4(0x61, 1, 144, 1, 44);// RESOLUTION_SETTING 分辨率设置
+    EPD_Send_1(0x82, 0x12);// VCM_DC_SETTING VCOM电压设置
+    EPD_Send_1(0x50, 0x97);// VCOM_AND_DATA_INTERVAL_SETTING VCOM和数据间隔设置
 
+    // 写入LUT查找表
     EPD_lut(0x20,44,&lut_dc_4in2[0]);// LUT_FOR_VCOM
     EPD_lut(0x21,42,&lut_ww_4in2[0]);// LUT_WHITE_TO_WHITE   
     EPD_lut(0x22,42,&lut_bw_4in2[0]);// LUT_BLACK_TO_WHITE
     EPD_lut(0x23,42,&lut_wb_4in2[0]);// LUT_WHITE_TO_BLACK
     EPD_lut(0x24,42,&lut_bb_4in2[0]);// LUT_BLACK_TO_BLACK
 
-    EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1  
+    EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1 开始数据传输1
     delay(2);
-    for(int i = 0; i < 400*300; i++)EPD_SendData(0xFF);//Red channel
+    for(int i = 0; i < 400*300; i++)EPD_SendData(0xFF);//清屏，填充白色
 
-    EPD_SendCommand(0x13);//DATA_START_TRANSMISSION_2
+    EPD_SendCommand(0x13);//DATA_START_TRANSMISSION_2 开始数据传输2
     delay(2);
     return 0;
-    
 }
 
+// =============================
+// 函数：EPD_Init_4in2_V2
+// 作用：初始化4.2英寸V2版本墨水屏，适配新版硬件，配置寄存器并清屏。
+// =============================
 int EPD_Init_4in2_V2() 
 {
-    EPD_Reset();
+    EPD_Reset(); // 复位
+    EPD_WaitUntilIdle_high(); // 等待空闲（高电平）
+
+    EPD_SendCommand(0x12); // 软件复位
     EPD_WaitUntilIdle_high();
 
-    EPD_SendCommand(0x12);
-    EPD_WaitUntilIdle_high();
+    EPD_Send_2(0x21, 0x40, 0x00); // 设置VCOM和数据间隔
+    EPD_Send_1(0x3C, 0x05);       // 设置边框波形
+    EPD_Send_1(0x11, 0x03);       // 设置数据输入模式
 
-    EPD_Send_2(0x21, 0x40, 0x00);
-    EPD_Send_1(0x3C, 0x05);
-    EPD_Send_1(0x11, 0x03);
+    EPD_Send_2(0x44, 0x00, 0x31); // 设置RAM X区间
+    EPD_Send_4(0x45, 0x00, 0x00, 0x2B, 0x01); // 设置RAM Y区间
 
-    EPD_Send_2(0x44, 0x00, 0x31);
-    EPD_Send_4(0x45, 0x00, 0x00, 0x2B, 0x01);
+    EPD_Send_1(0x4E, 0x00);       // 设置RAM X地址计数器
+    EPD_Send_2(0x4F, 0x00, 0x00); // 设置RAM Y地址计数器
 
-    EPD_Send_1(0x4E, 0x00);
-    EPD_Send_2(0x4F, 0x00, 0x00);
+    EPD_SendCommand(0x24);//DATA_START_TRANSMISSION_1 开始数据传输1
+    for(int i = 0; i < 15000; i++)EPD_SendData(0xFF);//清屏
 
-    EPD_SendCommand(0x24);//DATA_START_TRANSMISSION_1  
-    for(int i = 0; i < 15000; i++)EPD_SendData(0xFF);//Red channel
-
-    EPD_SendCommand(0x22);
+    EPD_SendCommand(0x22); // 显示刷新命令
 	EPD_SendData(0xF7);
-    EPD_SendCommand(0x20);
+    EPD_SendCommand(0x20); // 激活显示
     EPD_WaitUntilIdle_high();
 
-    EPD_SendCommand(0x24);//DATA_START_TRANSMISSION_1 
+    EPD_SendCommand(0x24);//DATA_START_TRANSMISSION_1 再次准备数据传输
     return 0;
 }
 
+// =============================
+// 函数：EPD_4IN2_V2_Show
+// 作用：4.2英寸V2墨水屏显示刷新并进入休眠模式。
+// =============================
 void EPD_4IN2_V2_Show(void)
 {
-    EPD_SendCommand(0x22);
-	EPD_SendData(0xF7);
-    EPD_SendCommand(0x20);
-    EPD_WaitUntilIdle_high();
+    EPD_SendCommand(0x22);      // 显示刷新命令
+	EPD_SendData(0xF7);          // 刷新参数
+    EPD_SendCommand(0x20);      // 激活显示
+    EPD_WaitUntilIdle_high();   // 等待刷新完成
 
-
-    EPD_SendCommand(0x10); // DEEP_SLEEP
+    EPD_SendCommand(0x10);      // 进入深度休眠
     EPD_SendData(0x01);
 }
 
@@ -174,103 +204,122 @@ unsigned char lut_wb_4in2b[] =
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
+// =============================
+// 函数：EPD_Init_4in2b
+// 作用：初始化4.2b英寸三色墨水屏，配置电源、面板等参数。
+// =============================
 int EPD_Init_4in2b() 
 {
-    EPD_Reset();
-    EPD_Send_3(0x06,0x17,0x17,0x17);//BOOSTER_SOFT_START
-    EPD_SendCommand(0x04);//POWER_ON
-    EPD_WaitUntilIdle();
-    EPD_Send_1(0x00, 0x0F);//PANEL_SETTING
-    EPD_Send_1(0x50,0xF7);// VCOM_AND_DATA_INTERVAL_SETTING
+    EPD_Reset(); // 复位
+    EPD_Send_3(0x06,0x17,0x17,0x17);//BOOSTER_SOFT_START 启动升压
+    EPD_SendCommand(0x04);//POWER_ON 上电
+    EPD_WaitUntilIdle();  // 等待空闲
+    EPD_Send_1(0x00, 0x0F);//PANEL_SETTING 面板设置
+    EPD_Send_1(0x50,0xF7);// VCOM_AND_DATA_INTERVAL_SETTING 设置VCOM和数据间隔
 
-    EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1  
+    EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1 开始数据传输
     delay(2);
     return 0;
 }
 
+// =============================
+// 函数：EPD_Init_4in2b_V2
+// 作用：初始化4.2b英寸V2三色墨水屏，自动识别硬件版本并切换初始化流程。
+// =============================
 int EPD_Init_4in2b_V2() 
 {
-
-        unsigned char i;
-    EPD_Reset();
+    unsigned char i;
+    EPD_Reset(); // 复位
     
-    EPD_SendCommand(0x2F);
+    EPD_SendCommand(0x2F); // 读取硬件ID
     delay(2);
     digitalWrite(PIN_SPI_DC, HIGH);
     i = DEV_SPI_ReadByte();
+    Serial.print("EPD: 硬件ID读取结果 = 0x");
+    Serial.println(i, HEX);
 
     if(i == 0x01)
     {
-        flag = 0;
+        flag = 0; // 新版硬件
         EPD_Reset();
         EPD_WaitUntilIdle_high();
         EPD_SendCommand(0x12); 
         EPD_WaitUntilIdle_high();
 
-        EPD_Send_1(0x3C, 0x05);
-        EPD_Send_1(0x18, 0x80);
-        EPD_Send_1(0x11, 0x03);
+        EPD_Send_1(0x3C, 0x05); // 边框设置
+        EPD_Send_1(0x18, 0x80); // Booster设置
+        EPD_Send_1(0x11, 0x03); // 数据输入模式
 
-        EPD_Send_2(0x44, 0x00, 0x31);
-        EPD_Send_4(0x45, 0x00, 0x00, 0x2B, 0x01);
+        EPD_Send_2(0x44, 0x00, 0x31); // RAM X区间
+        EPD_Send_4(0x45, 0x00, 0x00, 0x2B, 0x01); // RAM Y区间
 
-        EPD_Send_1(0x4E, 0x00);
-        EPD_Send_2(0x4F, 0x00, 0x00);
+        EPD_Send_1(0x4E, 0x00); // RAM X地址计数器
+        EPD_Send_2(0x4F, 0x00, 0x00); // RAM Y地址计数器
         EPD_WaitUntilIdle_high();
 
-        EPD_SendCommand(0x24);
+        EPD_SendCommand(0x24); // 开始数据传输
         delay(2);
     }
     else
     {
-        flag = 1;
+        flag = 1; // 旧版硬件
         EPD_Reset();
 
-        EPD_SendCommand(0x04); 
+        EPD_SendCommand(0x04); // 上电
         EPD_WaitUntilIdle();
-        EPD_Send_1(0x00, 0x0F);//PANEL_SETTING
+        EPD_Send_1(0x00, 0x0F);//PANEL_SETTING 面板设置
 
-        EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1  
+        EPD_SendCommand(0x10);//DATA_START_TRANSMISSION_1 开始数据传输
         delay(2);
-        
     }
     return 0;
 }
 
 
 
+// =============================
+// 函数：EPD_4IN2B_V2_load
+// 作用：4.2b英寸V2三色墨水屏数据加载，根据硬件版本选择不同的加载方式。
+// =============================
 void EPD_4IN2B_V2_load(void)
 {
     if(flag == 0)
     {
-        EPD_loadAFilp();
+        EPD_loadAFilp(); // 新版硬件，使用翻转加载
     }
     else
     {
-        EPD_loadA();
+        //EPD_loadA();     // 旧版硬件，标准加载
+        EPD_loadB();     // 这是正确的，旧版硬件，标准加载，三色版本需要使用EPD_loadB函数
     }
 }
 
+// =============================
+// 函数：EPD_4IN2B_V2_Show
+// 作用：4.2b英寸V2三色墨水屏显示刷新并进入休眠，根据硬件版本选择不同流程。
+// =============================
 void EPD_4IN2B_V2_Show(void)
 {
     if(flag == 0)
     {
+        // 新版硬件刷新并休眠
         EPD_SendCommand(0x22);
         EPD_SendData(0xF7);
         EPD_SendCommand(0x20);
         EPD_WaitUntilIdle_high();
-        EPD_Send_1(0X10, 0x03);
+        EPD_Send_1(0X10, 0x03); // 进入休眠
     }
     else
     {
-        EPD_SendCommand(0x12); // DISPLAY_REFRESH
+        // 旧版硬件刷新并休眠
+        EPD_SendCommand(0x12); // DISPLAY_REFRESH 刷新
         delay(100);
         EPD_WaitUntilIdle();
         
-        EPD_Send_1(0X50, 0xf7);
-        EPD_SendCommand(0X02);  	//power off
-        EPD_WaitUntilIdle(); //waiting for the electronic paper IC to release the idle signal
-        EPD_Send_1(0X07, 0xf7);  	//deep sleep
+        EPD_Send_1(0X50, 0xf7); // 设置VCOM和数据间隔
+        EPD_SendCommand(0X02);   // power off 关电
+        EPD_WaitUntilIdle();     // 等待空闲
+        EPD_Send_1(0X07, 0xf7); // deep sleep 深度休眠
     }
 }
 
