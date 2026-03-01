@@ -134,6 +134,7 @@ client.println(
     "getElm('nud_h').value=""+epdArr[index][1];\r\n"
     "epdInd=index;\r\n"
 "}\r\n");
+}
 
 void sendJS_B(WiFiClient client)
 {
@@ -477,8 +478,8 @@ client.println(
         "return u_send('EPD'+String.fromCharCode(epdInd+97)+'_',false);\r\n"  
     "}\r\n"
 
-    "if ((epdInd==0)||(epdInd==3)||(epdInd==6)||(epdInd==7)||(epdInd==9)||(epdInd==12)||"
-    "(epdInd==16)||(epdInd==19)||(epdInd==22)||(epdInd==26)||(epdInd==27)||(epdInd==28))\r\n"
+    "if ((epdInd==0)||(epdInd==3)||(epdInd==6)||(epdInd==7)||(epdInd==9)||(epdInd==12)||\
+		(epdInd==16)||(epdInd==19)||(epdInd==22)||(epdInd==26)||(epdInd==27)||(epdInd==28))\r\n"
     "{\r\n"
         "xhReq.onload=xhReq.onerror=function()\r\n"
         "{\r\n"
@@ -565,4 +566,3 @@ client.println(
     "}\r\n"
 "}\r\n\r\n");
 }
-
