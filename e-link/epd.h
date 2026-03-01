@@ -1,31 +1,36 @@
-/**
+/*
  ******************************************************************************
  * @file    epd.h
  * @author  Waveshare Team
  * @version V1.0.0
  * @date    23-January-2018
- * @brief   This file provides e-Paper driver functions
- * void EPD_SendCommand(byte command);
- * void EPD_SendData(byte data);
- * void EPD_WaitUntilIdle();
- * void EPD_Send_1(byte c, byte v1);
- * void EPD_Send_2(byte c, byte v1, byte v2);
- * void EPD_Send_3(byte c, byte v1, byte v2, byte v3);
- * void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4);
- * void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5);
- * void EPD_Reset();
- * void EPD_dispInit();
- * * varualbes:
- * EPD_dispLoad;                - pointer on current loading function
- * EPD_dispIndex;               - index of current e-Paper
- * EPD_dispInfo EPD_dispMass[]; - array of e-Paper properties
+ * @brief   该文件为墨水屏(e-Paper)驱动头文件，声明了主要的驱动函数和核心变量。
+ *
+ * 主要函数说明：
+ *   void EPD_SendCommand(byte command);                    // 发送命令字节到墨水屏
+ *   void EPD_SendData(byte data);                          // 发送数据字节到墨水屏
+ *   void EPD_WaitUntilIdle();                              // 等待墨水屏空闲
+ *   void EPD_Send_1(byte c, byte v1);                      // 发送带1个参数的命令
+ *   void EPD_Send_2(byte c, byte v1, byte v2);             // 发送带2个参数的命令
+ *   void EPD_Send_3(byte c, byte v1, byte v2, byte v3);                    // 发送带3个参数的命令
+ *   void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4);           // 发送带4个参数的命令
+ *   void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5);  // 发送带5个参数的命令
+ *   void EPD_Reset();                  // 复位墨水屏
+ *   void EPD_dispInit();               // 初始化墨水屏，设置型号和相关指针
+ *
+ * 主要变量说明：
+ *   EPD_dispLoad;                // 当前图像加载函数的指针
+ *   EPD_dispIndex;               // 当前墨水屏型号的索引
+ *   EPD_dispInfo EPD_dispMass[]; // 所有支持墨水屏型号的属性数组
+ *
+ * 本文件为项目的核心驱动接口
  * ******************************************************************************
  */
+
 #ifndef _EPD_H_
 #define _EPD_H_
-/* SPI pin definition --------------------------------------------------------*/
-//#include "epd7in5_HD.h"
 
+/* SPI pin definition --------------------------------------------------------*/
 #define PIN_SPI_SCK  13
 #define PIN_SPI_DIN  14
 #define PIN_SPI_CS   15
@@ -41,38 +46,48 @@
 #define LOW             0
 #define HIGH            1
 
-#define GPIO_PIN_SET   1
-#define GPIO_PIN_RESET 0
+#define GPIO_PIN_SET    1
+#define GPIO_PIN_RESET  0
 
+// =============================
+// 函数：EPD_initSPI
+// 作用：初始化 SPI 相关引脚，设置为输入/输出，并初始化电平
+// =============================
 void EPD_initSPI()
 {
-    pinMode(PIN_SPI_BUSY,  INPUT);
-    pinMode(PIN_SPI_RST , OUTPUT);
-    pinMode(PIN_SPI_DC  , OUTPUT);
+    pinMode(PIN_SPI_BUSY,  INPUT);      // 设置忙信号引脚为输入
+    pinMode(PIN_SPI_RST , OUTPUT);      // 设置复位引脚为输出
+    pinMode(PIN_SPI_DC  , OUTPUT);      // 设置数据/命令选择引脚为输出
     
-    pinMode(PIN_SPI_SCK, OUTPUT);
-    pinMode(PIN_SPI_DIN, OUTPUT);
-    pinMode(PIN_SPI_CS , OUTPUT);
+    pinMode(PIN_SPI_SCK, OUTPUT);       // 设置 SPI 时钟引脚为输出
+    pinMode(PIN_SPI_DIN, OUTPUT);       // 设置 SPI 数据输入引脚为输出
+    pinMode(PIN_SPI_CS , OUTPUT);       // 设置 SPI 片选引脚为输出
 
-    pinMode(PIN_SPI_CS_S , OUTPUT);
-    pinMode(PIN_SPI_PWR , OUTPUT);
+    pinMode(PIN_SPI_CS_S , OUTPUT);     // 设置从设备片选为输出
+    pinMode(PIN_SPI_PWR , OUTPUT);      // 设置电源控制引脚为输出
 
-    digitalWrite(PIN_SPI_CS, HIGH);
-    digitalWrite(PIN_SPI_CS_S, HIGH);
-    digitalWrite(PIN_SPI_PWR, HIGH);
-    digitalWrite(PIN_SPI_SCK, LOW);
+    digitalWrite(PIN_SPI_CS, HIGH);     // 片选拉高，默认不选中
+    digitalWrite(PIN_SPI_CS_S, HIGH);   // 从片选拉高
+    digitalWrite(PIN_SPI_PWR, HIGH);    // 电源拉高，默认上电
+    digitalWrite(PIN_SPI_SCK, LOW);     // 时钟拉低，初始状态
 }
 
+// =============================
+// 函数：GPIO_Mode
+// 作用：设置 GPIO 引脚为输入或输出
+// =============================
 void GPIO_Mode(unsigned char GPIO_Pin, unsigned char Mode)
 {
     if(Mode == 0) {
-        pinMode(GPIO_Pin , INPUT);
-	} else {
-		pinMode(GPIO_Pin , OUTPUT);
-	}
+        pinMode(GPIO_Pin , INPUT);   // 0 表示输入
+    } else {
+        pinMode(GPIO_Pin , OUTPUT);  // 1 表示输出
+    }
 }
 
 /* Lut mono ------------------------------------------------------------------*/
+// 下面是一些预定义的 LUT（查找表）数据，用于控制墨水屏的刷新行为
+// 全刷
 byte lut_full_mono[] =
 {
     0x02, 0x02, 0x01, 0x11, 0x12, 0x12, 0x22, 0x22, 
@@ -80,7 +95,7 @@ byte lut_full_mono[] =
     0x00, 0x00, 0x00, 0x00, 0xF8, 0xB4, 0x13, 0x51, 
     0x35, 0x51, 0x51, 0x19, 0x01, 0x00
 };
-
+// 局部刷新
 byte lut_partial_mono[] =
 {
     0x10, 0x18, 0x18, 0x08, 0x18, 0x18, 0x08, 0x00, 
@@ -89,47 +104,61 @@ byte lut_partial_mono[] =
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-/* The procedure of sending a byte to e-Paper by SPI -------------------------*/
+/* The procedure of sending a byte to e-Paper by SPI ----
+---通过 SPI 协议向电子纸发送一个字节的过程*/
+
+// =============================
+// 函数：EpdSpiTransferCallback
+// 作用：通过 SPI 手动发送一个字节到 e-Paper
+// =============================
 void EpdSpiTransferCallback(byte data) 
 {
     //SPI.beginTransaction(spi_settings);
-    digitalWrite(PIN_SPI_CS, GPIO_PIN_RESET);
+    digitalWrite(PIN_SPI_CS, GPIO_PIN_RESET); // 片选拉低，开始传输
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) // 逐位发送 8 位数据
     {
-        if ((data & 0x80) == 0) digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); 
-        else                    digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);
+        if ((data & 0x80) == 0)
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); // 当前位为0，数据线拉低
+        else
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);   // 当前位为1，数据线拉高
 
-        data <<= 1;
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);
+        data <<= 1;                                 // 左移一位，准备下一个 bit
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);    // 时钟上升沿，发送数据
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);  // 时钟下降沿，准备下一个 bit
     }
     
     //SPI.transfer(data);
-    digitalWrite(PIN_SPI_CS, GPIO_PIN_SET);
+    digitalWrite(PIN_SPI_CS, GPIO_PIN_SET);         // 片选拉高，结束传输
     //SPI.endTransaction();
 }
 
 
+// =============================
+// 函数：DEV_SPI_ReadByte
+// 作用：通过 SPI 读取一个字节（bit-bang 方式）
+// =============================
 unsigned char DEV_SPI_ReadByte()
 {
-    unsigned char j=0xff;
-    GPIO_Mode(PIN_SPI_DIN, 0);
-    digitalWrite(PIN_SPI_CS, GPIO_PIN_RESET);
-    for (int i = 0; i < 8; i++)
+    unsigned char j=0xff; // 读取结果，初始为全1
+    GPIO_Mode(PIN_SPI_DIN, 0); // 数据线设置为输入
+    digitalWrite(PIN_SPI_CS, GPIO_PIN_RESET); // 片选拉低，准备读取
+    for (int i = 0; i < 8; i++) // 逐位读取 8 位
     {
-        j = j << 1;
-        if (digitalRead(PIN_SPI_DIN))  j = j | 0x01;
-        else                            j = j & 0xfe;
-        
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);     
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);
+        j = j << 1; // 左移一位，为下一个 bit 腾出空间
+        if (digitalRead(PIN_SPI_DIN))
+            j = j | 0x01; // 读取数据线为高，当前 bit 置1
+        else
+            j = j & 0xfe; // 读取数据线为低，当前 bit 置0
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);     // 时钟上升沿，采样数据
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);   // 时钟下降沿
     }
-    digitalWrite(PIN_SPI_CS, GPIO_PIN_SET);
-    GPIO_Mode(PIN_SPI_DIN, 1);
-    return j;
+    digitalWrite(PIN_SPI_CS, GPIO_PIN_SET); // 片选拉高，结束读取
+    GPIO_Mode(PIN_SPI_DIN, 1);              // 数据线恢复为输出
+    return j;                               // 返回读取结果
 }
 
+// 下面是一些预定义的 LUT（查找表）数据，用于控制墨水屏的刷新行为
 byte lut_vcom0[] = { 15, 0x0E, 0x14, 0x01, 0x0A, 0x06, 0x04, 0x0A, 0x0A, 0x0F, 0x03, 0x03, 0x0C, 0x06, 0x0A, 0x00 };
 byte lut_w    [] = { 15, 0x0E, 0x14, 0x01, 0x0A, 0x46, 0x04, 0x8A, 0x4A, 0x0F, 0x83, 0x43, 0x0C, 0x86, 0x0A, 0x04 };
 byte lut_b    [] = { 15, 0x0E, 0x14, 0x01, 0x8A, 0x06, 0x04, 0x8A, 0x4A, 0x0F, 0x83, 0x43, 0x0C, 0x06, 0x4A, 0x04 };
@@ -140,24 +169,34 @@ byte lut_red0 [] = { 15, 0x83, 0x5D, 0x01, 0x81, 0x48, 0x23, 0x77, 0x77, 0x01, 0
 byte lut_red1 [] = { 15, 0x03, 0x1D, 0x01, 0x01, 0x08, 0x23, 0x37, 0x37, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 /* Sending a byte as a command -----------------------------------------------*/
+// =============================
+// 函数：EPD_SendCommand
+// 作用：发送命令字节到 e-Paper（DC 低）
+// =============================
 void EPD_SendCommand(byte command) 
 {
-    digitalWrite(PIN_SPI_DC, LOW);
-    EpdSpiTransferCallback(command);
+    digitalWrite(PIN_SPI_DC, LOW);           // DC 低，表示命令
+    EpdSpiTransferCallback(command);         // 通过 SPI 发送命令字节
 }
 
+// =============================
+// 函数：EPD_SendCommand_13in3E6
+// 作用：13.3寸 EPD 专用命令发送（bit-bang）
+// =============================
 void EPD_SendCommand_13in3E6(byte command) 
 {
-    digitalWrite(PIN_SPI_DC, LOW);
+    digitalWrite(PIN_SPI_DC, LOW);           // DC 低，命令
     //SPI.beginTransaction(spi_settings);
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) // 逐位发送 8 位命令
     {
-        if ((command & 0x80) == 0) digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); 
-        else                    digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);
+        if ((command & 0x80) == 0)
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); // 0拉低
+        else
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);   // 1拉高
 
-        command <<= 1;
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);
+        command <<= 1;                              // 左移一位
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);    // 时钟上升沿
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);  // 时钟下降沿
     }
     
     //SPI.transfer(command);
@@ -165,24 +204,34 @@ void EPD_SendCommand_13in3E6(byte command)
 }
 
 /* Sending a byte as a data --------------------------------------------------*/
+// =============================
+// 函数：EPD_SendData
+// 作用：发送数据字节到 e-Paper（DC 高）
+// =============================
 void EPD_SendData(byte data) 
 {
-    digitalWrite(PIN_SPI_DC, HIGH);
-    EpdSpiTransferCallback(data);
+    digitalWrite(PIN_SPI_DC, HIGH);          // DC 高，表示数据
+    EpdSpiTransferCallback(data);            // 通过 SPI 发送数据字节
 }
 
+// =============================
+// 函数：EPD_SendData_13in3E6
+// 作用：13.3寸 EPD 专用数据发送（bit-bang）
+// =============================
 void EPD_SendData_13in3E6(byte data) 
 {
-    digitalWrite(PIN_SPI_DC, HIGH);
+    digitalWrite(PIN_SPI_DC, HIGH);          // DC 高，数据
     //SPI.beginTransaction(spi_settings);
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) // 逐位发送 8 位数据
     {
-        if ((data & 0x80) == 0) digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); 
-        else                    digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);
+        if ((data & 0x80) == 0)
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_RESET); // 0拉低
+        else
+            digitalWrite(PIN_SPI_DIN, GPIO_PIN_SET);   // 1拉高
 
-        data <<= 1;
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET);
-        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);
+        data <<= 1;                              // 左移一位
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_SET); // 时钟上升沿
+        digitalWrite(PIN_SPI_SCK, GPIO_PIN_RESET);// 时钟下降沿
     }
     
     //SPI.transfer(data);
@@ -190,20 +239,32 @@ void EPD_SendData_13in3E6(byte data)
 }
 
 /* Waiting the e-Paper is ready for further instructions ---------------------*/
+// =============================
+// 函数：EPD_WaitUntilIdle
+// 作用：等待 e-Paper 空闲（忙信号为0时继续）
+// =============================
 void EPD_WaitUntilIdle() 
 {
     //0: busy, 1: idle
-    while(digitalRead(PIN_SPI_BUSY) == 0) delay(100);    
+    while(digitalRead(PIN_SPI_BUSY) == 0) delay(100);    // 忙则等待，每100ms检测一次
 }
 
 /* Waiting the e-Paper is ready for further instructions ---------------------*/
+// =============================
+// 函数：EPD_WaitUntilIdle_high
+// 作用：等待 e-Paper 空闲（忙信号为1时继续，部分型号用）
+// =============================
 void EPD_WaitUntilIdle_high() 
 {
     //1: busy, 0: idle
-    while(digitalRead(PIN_SPI_BUSY) == 1) delay(100);    
+    while(digitalRead(PIN_SPI_BUSY) == 1) delay(100);    // 忙则等待，每100ms检测一次
 }
 
 /* Send a one-argument command -----------------------------------------------*/
+// =============================
+// 函数：EPD_Send_1
+// 作用：发送带1个参数的命令
+// =============================
 void EPD_Send_1(byte c, byte v1)
 {
     EPD_SendCommand(c);
@@ -211,6 +272,10 @@ void EPD_Send_1(byte c, byte v1)
 }
 
 /* Send a two-arguments command ----------------------------------------------*/
+// =============================
+// 函数：EPD_Send_2
+// 作用：发送带2个参数的命令
+// =============================
 void EPD_Send_2(byte c, byte v1, byte v2)
 {
     EPD_SendCommand(c);
@@ -219,6 +284,10 @@ void EPD_Send_2(byte c, byte v1, byte v2)
 }
 
 /* Send a three-arguments command --------------------------------------------*/
+// =============================
+// 函数：EPD_Send_3
+// 作用：发送带3个参数的命令
+// =============================
 void EPD_Send_3(byte c, byte v1, byte v2, byte v3)
 {
     EPD_SendCommand(c);
@@ -228,6 +297,10 @@ void EPD_Send_3(byte c, byte v1, byte v2, byte v3)
 }
 
 /* Send a four-arguments command ---------------------------------------------*/
+// =============================
+// 函数：EPD_Send_4
+// 作用：发送带4个参数的命令
+// =============================
 void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4)
 {
     EPD_SendCommand(c);
@@ -238,6 +311,10 @@ void EPD_Send_4(byte c, byte v1, byte v2, byte v3, byte v4)
 }
 
 /* Send a five-arguments command ---------------------------------------------*/
+// =============================
+// 函数：EPD_Send_5
+// 作用：发送带5个参数的命令
+// =============================
 void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5)
 {
     EPD_SendCommand(c);
@@ -249,6 +326,10 @@ void EPD_Send_5(byte c, byte v1, byte v2, byte v3, byte v4, byte v5)
 }
 
 /* Writting lut-data into the e-Paper ----------------------------------------*/
+// =============================
+// 函数：EPD_lut
+// 作用：写入 LUT 查找表数据到 e-Paper
+// =============================
 void EPD_lut(byte c, byte l, byte*p)
 {
     // lut-data writting initialization
@@ -259,6 +340,10 @@ void EPD_lut(byte c, byte l, byte*p)
 }
 
 /* Writting lut-data of the black-white channel ------------------------------*/
+// =============================
+// 函数：EPD_SetLutBw
+// 作用：写入黑白通道的 LUT 查找表
+// =============================
 void EPD_SetLutBw(byte*c20, byte*c21, byte*c22, byte*c23, byte*c24) 
 {
     EPD_lut(0x20, *c20, c20 + 1);//g vcom 
@@ -269,6 +354,10 @@ void EPD_SetLutBw(byte*c20, byte*c21, byte*c22, byte*c23, byte*c24)
 }
 
 /* Writting lut-data of the red channel --------------------------------------*/
+// =============================
+// 函数：EPD_SetLutRed
+// 作用：写入红色通道的 LUT 查找表
+// =============================
 void EPD_SetLutRed(byte*c25, byte*c26, byte*c27) 
 {
     EPD_lut(0x25, *c25, c25 + 1);
@@ -277,6 +366,10 @@ void EPD_SetLutRed(byte*c25, byte*c26, byte*c27)
 }
 
 /* This function is used to 'wake up" the e-Paper from the deep sleep mode ---*/
+// =============================
+// 函数：EPD_Reset
+// 作用：复位 e-Paper，唤醒出深度睡眠
+// =============================
 void EPD_Reset() 
 {
     digitalWrite(PIN_SPI_RST, HIGH); 
@@ -303,12 +396,25 @@ void EPD_Reset()
 // #include "epd7in5.h"
 // #include "epd7in5_HD.h"
 #include "epd13in3.h"
-bool EPD_invert;           // If true, then image data bits must be inverted
-int  EPD_dispIndex;        // The index of the e-Paper's type
-int  EPD_dispX, EPD_dispY; // Current pixel's coordinates (for 2.13 only)
-void(*EPD_dispLoad)();     // Pointer on a image data writting function
 
-/* Image data loading function for a-type e-Paper ----------------------------*/ 
+// 作用：图像数据是否需要按位取反（部分型号或特殊显示模式下需要）
+// true 表示写入墨水屏前需对每个字节按位取反
+bool EPD_invert;           // 若为 true，图像数据写入前需按位取反
+
+// 作用：当前所选墨水屏型号在型号数组中的索引
+// 用于切换不同尺寸/类型的墨水屏驱动参数
+int  EPD_dispIndex;        // 当前墨水屏型号的索引
+
+// 作用：当前像素的 X、Y 坐标（仅 2.13 寸等部分型号需要）
+// 用于逐行/逐列写入像素数据时定位
+int  EPD_dispX, EPD_dispY; // 当前像素坐标（部分型号用）
+
+// 作用：当前图像数据加载函数的函数指针
+// 根据型号自动指向对应的写入函数，实现多型号兼容
+void(*EPD_dispLoad)();     // 当前图像加载函数指针
+
+/* Image data loading function for a-type e-Paper ------- a 型墨水屏的图像数据加载函数---*/ 
+
 void EPD_loadA()
 {
     // Come back to the image data end
@@ -734,6 +840,10 @@ EPD_dispInfo EPD_dispMass[] =
 };
 
 /* Initialization of an e-Paper ----------------------------------------------*/
+// =============================
+// 函数：EPD_dispInit
+// 作用：初始化 e-Paper，设置当前型号的初始化、加载、显示函数指针
+// =============================
 void EPD_dispInit()
 {
     // Call initialization function
