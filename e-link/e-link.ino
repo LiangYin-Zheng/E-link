@@ -17,8 +17,7 @@
 
 #include "wifiConfig.h"
 #include "mqtt.h"
-#include "epd.h"
-#include "epd4in2.h"
+#include "epd_gdeh042Z96.h"
 
 /* Entry point ----------------------------------------------------------------*/
 void setup() 
@@ -31,10 +30,10 @@ void setup()
     Wifi__setup();
 
     // Server initialization
-    Srvr__setup();
+    // Srvr__setup();
 
     // SPI initialization
-    EPD_initSPI();
+    EPD_initSPIA();
 
     // Initialization is complete
     Serial.print("\r\nOk!\r\n");
@@ -53,7 +52,10 @@ void setup()
     mqtt__setup();
 
     // 图像处理和显示
-
+    EPD_HW_Init(); // 电子纸初始化
+    EPD_WhiteScreen_ALL(gImage_BW,gImage_R); // 全屏显示图片（黑白+红色）
+    EPD_DeepSleep(); // 进入深度睡眠，降低功耗
+    delay(3000);   // 延时3秒
 }
 
 /* The main loop -------------------------------------------------------------*/
@@ -68,4 +70,5 @@ void loop()
     // MQTT循环 检测连接状态并处理消息
     mqtt__loop();
     
+
 }
