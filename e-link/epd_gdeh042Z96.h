@@ -72,7 +72,7 @@ void EPD_WhiteScreen_ALL_Clean(void); // 全屏清屏
  * BUSY 为输入，其余为输出。
  * 调用后可进行电子纸的SPI通信。
  */
-void EPD_initSPIA() 
+void EPD_initSPI() 
 {
     pinMode(SPI_BUSY, INPUT);   // BUSY为输入
     pinMode(SPI_RES, OUTPUT);   // RES为输出

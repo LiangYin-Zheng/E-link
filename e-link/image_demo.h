@@ -5,8 +5,7 @@
 #include <HTTPClient.h>     // HTTP 客户端库
 #include <MD5Builder.h>    // MD5 计算库
 #include <JPEGDecoder.h>    // JPEG 解码库
-#include "epd.h"
-#include "epd4in2.h"
+#include "epd_gdeh042Z96.h" // 电子纸驱动头文件
 
 // 提前声明
 void downloadAndVerifyImage(const char* url, const char* expectedMd5);
@@ -83,7 +82,7 @@ void displayImageBW(uint8_t* jpgBuf, size_t jpgSize)
     memset(bwBuf, 0xFF, BUF_SIZE);
 
     Serial.println("[DEBUG] Initializing EPD 4in2 V2 (BW)...");
-    EPD_Init_4in2_V2();
+    // EPD_Init_4in2_V2();
 
     if (!JpegDec.decodeArray(jpgBuf, jpgSize)) {
         Serial.println("[ERROR] JPEG decode failed (bw-only)");
@@ -174,10 +173,10 @@ void displayImageBW(uint8_t* jpgBuf, size_t jpgSize)
     free(grayBuf);
 
     // 写入并刷新
-    EPD_SendCommand(0x24);
+    //EPD_SendCommand(0x24);
     delay(2);
-    for (int i = 0; i < BUF_SIZE; i++) EPD_SendData(bwBuf[i]);
-    EPD_4IN2_V2_Show();
+    //for (int i = 0; i < BUF_SIZE; i++) EPD_SendData(bwBuf[i]);
+    //EPD_4IN2_V2_Show();
 
     free(bwBuf);
 }
