@@ -18,6 +18,11 @@ bool mqttReconnect();
 #include <freertos/semphr.h>
 #include <freertos/queue.h>
 
+// If PSRAM/heap_caps available, prefer allocating large buffers there
+#ifdef MALLOC_CAP_SPIRAM
+#include <esp_heap_caps.h>
+#endif
+
 // 来自主程序的全局互斥量声明
 extern SemaphoreHandle_t displayMutex;
 
@@ -27,6 +32,21 @@ extern EPD_Screen screen2;
 
 // Image worker task function (forward declaration)
 static void imageWorkerTask(void* param);
+
+// Global reusable buffers to avoid repeated malloc/free (reduces heap fragmentation)
+static uint8_t *g_imageBuf = NULL;         // download buffer
+static size_t  g_imageBufSize = 0;
+static uint8_t *g_displayBuf = NULL;       // BW buffer (ALLSCREEN_GRAGHBYTES)
+static uint8_t *g_rBuf = NULL;             // R buffer (ALLSCREEN_GRAGHBYTES)
+
+// allocation helpers (PSRAM preferred if available)
+#ifdef MALLOC_CAP_SPIRAM
+#define ALLOC_BUF(sz) heap_caps_malloc((sz), MALLOC_CAP_SPIRAM)
+#define FREE_BUF(p)   heap_caps_free((p))
+#else
+#define ALLOC_BUF(sz) malloc((sz))
+#define FREE_BUF(p)   free((p))
+#endif
 
 // Image task definition (shared between producer and worker)
 typedef struct {
@@ -54,86 +74,117 @@ static void imageWorkerTask(void* param) {
             WiFiClient *stream = http.getStreamPtr();
             size_t contentLen = http.getSize();
             Serial.print("[IMAGE WORKER] Content length: "); Serial.println(contentLen);
-            if (contentLen == 0 || (t.size != 0 && contentLen != t.size)) {
-                Serial.println("[IMAGE WORKER] unexpected content length");
-            }
             if (contentLen == 0) {
                 http.end();
                 continue;
             }
-            if (contentLen > 0 && contentLen != ALLSCREEN_GRAGHBYTES) {
-                Serial.print("[IMAGE WORKER] Warning: expected size "); Serial.print(ALLSCREEN_GRAGHBYTES); Serial.print(" got "); Serial.println(contentLen);
-            }
-            uint8_t *buf = (uint8_t*)malloc(contentLen);
-            if (!buf) {
-                Serial.println("[IMAGE WORKER] malloc failed");
-                http.end();
-                continue;
-            }
-            size_t read = 0;
-            while (read < contentLen) {
-                size_t chunk = stream->available();
-                if (chunk) {
-                    size_t toRead = min(chunk, contentLen - read);
-                    stream->readBytes(buf + read, toRead);
-                    read += toRead;
-                } else {
-                    delay(10);
-                }
-            }
-            http.end();
-
-            // Optional MD5 check (logged but ignored)
-            if (t.md5[0] != 0) {
-                MD5Builder md5;
-                md5.begin();
-                md5.add(buf, contentLen);
-                md5.calculate();
-                String calc = md5.toString();
-                if (calc != String(t.md5)) {
-                    Serial.println("[IMAGE WORKER] MD5 mismatch (ignored)");
-                } else {
-                    Serial.println("[IMAGE WORKER] MD5 OK");
-                }
-            }
-
-            // Ensure we have exactly ALLSCREEN_GRAGHBYTES to avoid OOB when displaying
-            uint8_t *displayBuf = NULL;
-            if (contentLen >= ALLSCREEN_GRAGHBYTES) {
-                // truncate to expected size
-                displayBuf = (uint8_t*)malloc(ALLSCREEN_GRAGHBYTES);
-                if (displayBuf) memcpy(displayBuf, buf, ALLSCREEN_GRAGHBYTES);
-            } else {
-                // pad with 0xFF (white) to expected size
-                displayBuf = (uint8_t*)malloc(ALLSCREEN_GRAGHBYTES);
-                if (displayBuf) {
-                    memcpy(displayBuf, buf, contentLen);
-                    memset(displayBuf + contentLen, 0xFF, ALLSCREEN_GRAGHBYTES - contentLen);
-                }
-            }
-
-            // select target screen
+            // select target early for possible direct streaming
             EPD_Screen *target = (t.screenId == 2) ? &screen2 : &screen1;
-            Serial.println("[IMAGE WORKER] attempting to acquire display mutex");
-            if (displayBuf == NULL) {
-                Serial.println("[IMAGE WORKER] failed to allocate display buffer");
-            } else if (displayMutex != NULL && xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10000)) == pdTRUE) {
-                Serial.println("[IMAGE WORKER] acquired display mutex");
-                EPD_HW_Init_s(target);
-                // create a temp red buffer (all zero)
-                uint8_t *rbuf = (uint8_t*)malloc(ALLSCREEN_GRAGHBYTES);
-                if (rbuf) { memset(rbuf, 0x00, ALLSCREEN_GRAGHBYTES); }
-                EPD_WhiteScreen_ALL_RAM_s(target, displayBuf, rbuf ? rbuf : (const unsigned char*)gImage_R);
-                if (rbuf) free(rbuf);
-                EPD_DeepSleep_s(target);
-                xSemaphoreGive(displayMutex);
-                Serial.println("[IMAGE WORKER] released display mutex");
-            } else {
-                Serial.println("[IMAGE WORKER] failed to acquire display mutex");
+
+            // Try to allocate display buffers once. If allocation fails, fall back to direct streaming
+            if (!g_displayBuf) {
+                g_displayBuf = (uint8_t*)ALLOC_BUF(ALLSCREEN_GRAGHBYTES);
+                if (g_displayBuf) memset(g_displayBuf, 0xFF, ALLSCREEN_GRAGHBYTES);
+            }
+            if (!g_rBuf) {
+                g_rBuf = (uint8_t*)ALLOC_BUF(ALLSCREEN_GRAGHBYTES);
+                if (g_rBuf) memset(g_rBuf, 0x00, ALLSCREEN_GRAGHBYTES);
             }
 
-            if (displayBuf) free(displayBuf);
-            free(buf);
+            size_t totalRead = 0;
+            uint8_t tmp[256];
+
+            if (g_displayBuf) {
+                // Buffering mode: fill global buffers up to 2*ALLSCREEN_GRAGHBYTES
+                while (totalRead < contentLen) {
+                    size_t avail = stream->available();
+                    if (avail == 0) { delay(10); continue; }
+                    size_t toRead = avail > sizeof(tmp) ? sizeof(tmp) : avail;
+                    toRead = (toRead > contentLen - totalRead) ? (contentLen - totalRead) : toRead;
+                    stream->readBytes(tmp, toRead);
+                    // copy into BW and R sections as appropriate
+                    for (size_t i = 0; i < toRead; i++) {
+                        size_t pos = totalRead + i;
+                        if (pos < (size_t)ALLSCREEN_GRAGHBYTES) {
+                            g_displayBuf[pos] = tmp[i];
+                        } else if (pos < (size_t)(2 * ALLSCREEN_GRAGHBYTES) && g_rBuf) {
+                            g_rBuf[pos - ALLSCREEN_GRAGHBYTES] = tmp[i];
+                        } else {
+                            // beyond our interest, discard
+                        }
+                    }
+                    totalRead += toRead;
+                }
+                http.end();
+            } else {
+                // Direct streaming mode: write incoming bytes straight to display to avoid allocation
+                if (displayMutex != NULL && xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10000)) == pdTRUE) {
+                    Serial.println("[IMAGE WORKER] acquired display mutex (direct stream)");
+                    EPD_HW_Init_s(target);
+                    // Start writing BW RAM
+                    Epaper_Write_Command_s(target, 0x24);
+                    bool startedR = false;
+                    while (totalRead < contentLen) {
+                        size_t avail = stream->available();
+                        if (avail == 0) { delay(10); continue; }
+                        size_t toRead = avail > sizeof(tmp) ? sizeof(tmp) : avail;
+                        toRead = (toRead > contentLen - totalRead) ? (contentLen - totalRead) : toRead;
+                        stream->readBytes(tmp, toRead);
+                        for (size_t i = 0; i < toRead; i++) {
+                            size_t pos = totalRead + i;
+                            if (pos < (size_t)ALLSCREEN_GRAGHBYTES) {
+                                Epaper_Write_Data_s(target, tmp[i]);
+                            } else if (pos < (size_t)(2 * ALLSCREEN_GRAGHBYTES)) {
+                                if (!startedR) {
+                                    Epaper_Write_Command_s(target, 0x26);
+                                    startedR = true;
+                                }
+                                Epaper_Write_Data_s(target, ~tmp[i]);
+                            } else {
+                                // beyond display capacity, discard
+                            }
+                        }
+                        totalRead += toRead;
+                    }
+                    // finalize display
+                    EPD_Update_s(target);
+                    EPD_DeepSleep_s(target);
+                    xSemaphoreGive(displayMutex);
+                    Serial.println("[IMAGE WORKER] released display mutex (direct stream)");
+                } else {
+                    Serial.println("[IMAGE WORKER] failed to acquire display mutex for direct stream, draining");
+                    // drain and discard
+                    while (totalRead < contentLen) {
+                        size_t avail = stream->available();
+                        if (avail == 0) { delay(10); continue; }
+                        size_t toRead = avail > sizeof(tmp) ? sizeof(tmp) : avail;
+                        toRead = (toRead > contentLen - totalRead) ? (contentLen - totalRead) : toRead;
+                        stream->readBytes(tmp, toRead);
+                        totalRead += toRead;
+                    }
+                }
+                http.end();
+            }
+
+            // MD5 and expected-size checks removed per request
+            // (data already streamed directly into g_displayBuf/g_rBuf above)
+
+            // If we buffered into g_displayBuf, perform a buffered display now.
+            if (g_displayBuf) {
+                Serial.println("[IMAGE WORKER] attempting to acquire display mutex");
+                if (displayMutex != NULL && xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10000)) == pdTRUE) {
+                    Serial.println("[IMAGE WORKER] acquired display mutex");
+                    EPD_HW_Init_s(target);
+                    EPD_WhiteScreen_ALL_RAM_s(target, g_displayBuf, g_rBuf ? g_rBuf : (const unsigned char*)gImage_R);
+                    EPD_DeepSleep_s(target);
+                    xSemaphoreGive(displayMutex);
+                    Serial.println("[IMAGE WORKER] released display mutex");
+                } else {
+                    Serial.println("[IMAGE WORKER] failed to acquire display mutex");
+                }
+            }
+
+            // note: global buffers are reused; do not free here to avoid fragmentation
         }
     }
 }
@@ -227,8 +278,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     else if (doc.containsKey("id")) screenId = doc["id"].as<uint8_t>();
     else if (contentId >= 0) screenId = (uint8_t)contentId;
 
-        // Prepare simple task object
-        ImageTask task;
+    // Prepare simple task object
+    ImageTask task;
     memset(&task,0,sizeof(task));
     strncpy(task.url, url, sizeof(task.url)-1);
     if (md5) strncpy(task.md5, md5, sizeof(task.md5)-1);

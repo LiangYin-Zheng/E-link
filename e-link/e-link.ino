@@ -86,7 +86,8 @@ void setup()
     if (takeDisplay(10000)) {
       Serial.println("[INFO] init/display screen1");
       EPD_HW_Init_s(&screen1);
-      EPD_WhiteScreen_ALL_s(&screen1, gImage_BW, gImage_R);
+      // EPD_WhiteScreen_ALL_s(&screen1, gImage_BW, gImage_R);
+      EPD_WhiteScreen_ALL_Clean_s(&screen1);
       EPD_DeepSleep_s(&screen1);
       giveDisplay();
     } else {
@@ -97,8 +98,8 @@ void setup()
     if (takeDisplay(10000)) {
       Serial.println("[INFO] init/display screen2");
       EPD_HW_Init_s(&screen2);
-      EPD_WhiteScreen_ALL_s(&screen2, gImage_BW, gImage_R);
-      // EPD_WhiteScreen_ALL_Clean_s(&screen2);
+      //EPD_WhiteScreen_ALL_s(&screen2, gImage_BW, gImage_R);
+      EPD_WhiteScreen_ALL_Clean_s(&screen2);
       EPD_DeepSleep_s(&screen2);
       giveDisplay();
     } else {

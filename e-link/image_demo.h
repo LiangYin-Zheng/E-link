@@ -43,8 +43,6 @@ void downloadAndVerifyImage(const char* url, const char* expectedMd5) {
     stream->readBytes(buffer, size);
 
     Serial.println("[SUCCESS] Image downloaded and verified successfully.");
-    // 解码并显示到 4.2 寸墨水屏
-    
 
     free(buffer);
     
