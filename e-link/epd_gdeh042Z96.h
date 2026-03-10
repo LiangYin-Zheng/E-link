@@ -377,6 +377,25 @@ void EPD_WhiteScreen_ALL_s(EPD_Screen *s,const unsigned char *BW_datas,const uns
    EPD_Update_s(s);
 }
 
+// RAM-friendly full-screen update: reads data directly from RAM buffers (not PROGMEM)
+void EPD_WhiteScreen_ALL_RAM_s(EPD_Screen *s,const unsigned char *BW_datas,const unsigned char *R_datas)
+{
+   unsigned int i;
+   Epaper_Write_Command_s(s, 0x24);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, BW_datas[i]);
+   }
+
+   Epaper_Write_Command_s(s, 0x26);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, ~R_datas[i]);
+   }
+
+   EPD_Update_s(s);
+}
+
 // 全屏清屏函数，写入全白数据
 void EPD_WhiteScreen_ALL_Clean_s(EPD_Screen *s)
 {
