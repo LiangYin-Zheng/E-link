@@ -8,6 +8,13 @@ void mqttReconnect();
 #include <PubSubClient.h>   // MQTT 客户端库
 #include <ArduinoJson.h>   // JSON 解析库
 #include "image_demo.h" // 图像处理函数声明
+#include "epd_gdeh042Z96.h"
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
+// 来自主程序的全局互斥量声明
+extern SemaphoreHandle_t displayMutex;
 
 
 WiFiClient espClient;
@@ -76,7 +83,28 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Timestamp: "); Serial.println(timestamp);
     Serial.print("Message ID: "); Serial.println(messageId);
 
+    // 解析要显示到哪块屏（默认 screen1）
+    int screenId = 1;
+    if (doc.containsKey("screenId")) screenId = doc["screenId"];
+    else if (doc.containsKey("id")) screenId = doc["id"];
+
     downloadAndVerifyImage(url, md5);
+
+    // 触发显示（假设 downloadAndVerifyImage 会填充 gImage_BW/gImage_R）
+    EPD_Screen *target = &screen1;
+    if (screenId == 2) target = &screen2;
+
+    Serial.println("[DEBUG] attempting to acquire display mutex for MQTT-triggered update");
+    if (displayMutex != NULL && xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10000)) == pdTRUE) {
+        Serial.println("[DEBUG] acquired display mutex");
+        EPD_HW_Init_s(target);
+        EPD_WhiteScreen_ALL_s(target, gImage_BW, gImage_R);
+        EPD_DeepSleep_s(target);
+        xSemaphoreGive(displayMutex);
+        Serial.println("[DEBUG] released display mutex");
+    } else {
+        Serial.println("[WARN] failed to acquire display mutex; skipping display update");
+    }
 }
 
 void mqttReconnect() {

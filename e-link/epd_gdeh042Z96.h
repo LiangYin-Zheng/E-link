@@ -1,20 +1,20 @@
 #ifndef __EPD_GDEH042Z96_H_
 #define __EPD_GDEH042Z96_H_
 
-#include "Ap_29demo.h" // 包含图片数据头文件
+#include "Ap_29demo.h" // 图像数据
+#include "epd_screen.h"
 
-/* SPI pin definition --------------------------------------------------------*/
-#define SPI_SCK     13      // SPI时钟引脚（SCK），输出
-#define SPI_DIN     14      // SPI数据输入引脚（DIN/MOSI），输出
-#define SPI_CS      15      // SPI片选引脚（CS），输出
-#define SPI_BUSY    25      // 电子纸忙信号（BUSY），输入，用于检测屏幕是否空闲
-#define SPI_RES     26      // 复位引脚（RST），输出
-#define SPI_DC      27      // 数据/命令选择引脚（DC），输出
+/* Shared SPI pin definition (MOSI/SCK are shared between multiple screens) ------*/
+#define SPI_SCK     19      // SPI时钟引脚（SCK），输出
+#define SPI_DIN     18      // SPI数据输入引脚（DIN/MOSI），输出
+#define SPI_RES     5       // 默认复位引脚（保留，单屏兼容）
+#define SPI_DC      17      // 默认 DC 引脚（保留，单屏兼容）
+#define SPI_CS      16      // 默认片选引脚（保留，单屏兼容）
+#define SPI_BUSY    4       // 默认 BUSY 引脚（保留，单屏兼容）
 
 #define SPI_CS_M    5  // 主设备片选引脚
 #define SPI_CS_S    2  // 从设备片选引脚
 #define SPI_PWR     33 // 电源控制引脚
-
 
 /* SPI Pin level definition ------------------------------------------------------*/
 #define EPD_W21_MOSI_0  digitalWrite(SPI_DIN,LOW)   // MOSI输出低电平
@@ -90,6 +90,33 @@ void EPD_initSPI()
     digitalWrite(SPI_PWR, HIGH);    // 电源拉高，默认上电
     digitalWrite(SPI_SCK, LOW);     // 时钟拉低，初始状态
 }
+
+/**
+ * @brief 初始化单块屏的控制引脚（CS/DC/RES/BUSY/PWR）
+ */
+void EPD_initPins(EPD_Screen *s)
+{
+  if (s == NULL) return;
+  pinMode(s->BUSY, INPUT);
+  pinMode(s->RES, OUTPUT);
+  pinMode(s->DC, OUTPUT);
+  pinMode(s->CS, OUTPUT);
+  if (s->PWR != 255) pinMode(s->PWR, OUTPUT);
+
+  digitalWrite(s->CS, HIGH);
+  if (s->PWR != 255) digitalWrite(s->PWR, HIGH);
+  digitalWrite(SPI_SCK, LOW);
+}
+
+/* New per-screen API: functions that accept an EPD_Screen * parameter. */
+void Epaper_Write_Command_s(EPD_Screen *s, unsigned char command);
+void Epaper_Write_Data_s(EPD_Screen *s, unsigned char data);
+void Epaper_READBUSY_s(EPD_Screen *s);
+void EPD_HW_Init_s(EPD_Screen *s);
+void EPD_Update_s(EPD_Screen *s);
+void EPD_DeepSleep_s(EPD_Screen *s);
+void EPD_WhiteScreen_ALL_s(EPD_Screen *s, const unsigned char *BW_datas,const unsigned char *R_datas);
+void EPD_WhiteScreen_ALL_Clean_s(EPD_Screen *s);
 
 //==================== 主循环 ====================
 // 提示：全屏刷新时屏幕会闪烁，这是正常现象，用于消除残影。
@@ -230,6 +257,141 @@ void Epaper_Write_Data(unsigned char command)
   EPD_W21_DC_1;   // command write
   SPI_Write(command);
   EPD_W21_CS_1;
+}
+
+// -- Per-screen implementations --
+void Epaper_Write_Command_s(EPD_Screen *s, unsigned char command)
+{
+  SPI_Delay(1);
+  digitalWrite(s->CS, LOW);
+  digitalWrite(s->DC, LOW);
+  SPI_Write(command);
+  digitalWrite(s->CS, HIGH);
+}
+
+void Epaper_Write_Data_s(EPD_Screen *s, unsigned char data)
+{
+  SPI_Delay(1);
+  digitalWrite(s->CS, LOW);
+  digitalWrite(s->DC, HIGH);
+  SPI_Write(data);
+  digitalWrite(s->CS, HIGH);
+}
+
+void Epaper_READBUSY_s(EPD_Screen *s)
+{
+  while(1)
+  {
+    if (digitalRead(s->BUSY) == 0) break;
+  }
+}
+
+void EPD_Update_s(EPD_Screen *s)
+{
+  Epaper_Write_Command_s(s, 0x22);
+  Epaper_Write_Data_s(s, 0xC7);
+  Epaper_Write_Command_s(s, 0x20);
+  Epaper_READBUSY_s(s);
+}
+
+void EPD_DeepSleep_s(EPD_Screen *s)
+{
+  Epaper_Write_Command_s(s, 0x10);
+  Epaper_Write_Data_s(s, 0x01);
+  delay(100);
+}
+
+void EPD_HW_Init_s(EPD_Screen *s)
+{
+    digitalWrite(s->RES, LOW);
+    delay(1);
+    digitalWrite(s->RES, HIGH);
+    delay(1);
+
+    Epaper_READBUSY_s(s);
+    Epaper_Write_Command_s(s, 0x12);
+    Epaper_READBUSY_s(s);
+
+    Epaper_Write_Command_s(s, 0x74);
+    Epaper_Write_Data_s(s, 0x54);
+    Epaper_Write_Command_s(s, 0x7E);
+    Epaper_Write_Data_s(s, 0x3B);
+    Epaper_Write_Command_s(s, 0x2B);
+    Epaper_Write_Data_s(s, 0x04);
+    Epaper_Write_Data_s(s, 0x63);
+
+    Epaper_Write_Command_s(s, 0x0C);
+    Epaper_Write_Data_s(s, 0x8B);
+    Epaper_Write_Data_s(s, 0x9C);
+    Epaper_Write_Data_s(s, 0x96);
+    Epaper_Write_Data_s(s, 0x0F);
+
+    Epaper_Write_Command_s(s, 0x01);
+    Epaper_Write_Data_s(s, 0x2B);
+    Epaper_Write_Data_s(s, 0x01);
+    Epaper_Write_Data_s(s, 0x00);
+
+    Epaper_Write_Command_s(s, 0x11);
+    Epaper_Write_Data_s(s, 0x01);
+    Epaper_Write_Command_s(s, 0x44);
+    Epaper_Write_Data_s(s, 0x00);
+    Epaper_Write_Data_s(s, 0x31);
+    Epaper_Write_Command_s(s, 0x45);
+    Epaper_Write_Data_s(s, 0x2B);
+    Epaper_Write_Data_s(s, 0x01);
+    Epaper_Write_Data_s(s, 0x00);
+    Epaper_Write_Data_s(s, 0x00);
+    Epaper_Write_Command_s(s, 0x3C);
+    Epaper_Write_Data_s(s, 0x01);
+
+    Epaper_Write_Command_s(s, 0x18);
+    Epaper_Write_Data_s(s, 0x80);
+    Epaper_Write_Command_s(s, 0x22);
+    Epaper_Write_Data_s(s, 0xB1);
+    Epaper_Write_Command_s(s, 0x20);
+    Epaper_READBUSY_s(s);
+
+    Epaper_Write_Command_s(s, 0x4E);
+    Epaper_Write_Data_s(s, 0x00);
+    Epaper_Write_Command_s(s, 0x4F);
+    Epaper_Write_Data_s(s, 0x2B);
+    Epaper_Write_Data_s(s, 0x01);
+}
+
+// 全屏刷新显示函数，写入黑白和红色数据并刷新
+void EPD_WhiteScreen_ALL_s(EPD_Screen *s,const unsigned char *BW_datas,const unsigned char *R_datas)
+{
+   unsigned int i;
+   Epaper_Write_Command_s(s, 0x24);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, pgm_read_byte(&BW_datas[i]));
+   }
+
+   Epaper_Write_Command_s(s, 0x26);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, ~pgm_read_byte(&R_datas[i]));
+   }
+
+   EPD_Update_s(s);
+}
+
+// 全屏清屏函数，写入全白数据
+void EPD_WhiteScreen_ALL_Clean_s(EPD_Screen *s)
+{
+   unsigned int i;
+   Epaper_Write_Command_s(s, 0x24);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, 0xFF);
+   }
+   Epaper_Write_Command_s(s, 0x26);
+   for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
+   {
+     Epaper_Write_Data_s(s, 0x00);
+   }
+   EPD_Update_s(s);
 }
 
 /////////////////EPD settings Functions/////////////////////
