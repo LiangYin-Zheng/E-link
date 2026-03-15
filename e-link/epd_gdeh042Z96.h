@@ -7,10 +7,11 @@
 /* Shared SPI pin definition (MOSI/SCK are shared between multiple screens) ------*/
 #define SPI_SCK     19      // SPI时钟引脚（SCK），输出
 #define SPI_DIN     18      // SPI数据输入引脚（DIN/MOSI），输出
-#define SPI_RES     5       // 默认复位引脚（保留，单屏兼容）
-#define SPI_DC      17      // 默认 DC 引脚（保留，单屏兼容）
-#define SPI_CS      16      // 默认片选引脚（保留，单屏兼容）
-#define SPI_BUSY    4       // 默认 BUSY 引脚（保留，单屏兼容）
+
+#define SPI_RES     5       // 默认复位引脚（单屏兼容）
+#define SPI_DC      17      // 默认 DC 引脚（单屏兼容）
+#define SPI_CS      16      // 默认片选引脚（单屏兼容）
+#define SPI_BUSY    4       // 默认 BUSY 引脚（单屏兼容）
 
 #define SPI_CS_M    5  // 主设备片选引脚
 #define SPI_CS_S    2  // 从设备片选引脚
@@ -121,26 +122,23 @@ void EPD_WhiteScreen_ALL_Clean_s(EPD_Screen *s);
 //==================== 主循环 ====================
 // 提示：全屏刷新时屏幕会闪烁，这是正常现象，用于消除残影。
 // 若移植到其他平台，只需修改IO定义。
-void Z96epd__loop() {
-  while(1)
-  {
-    // 1. 全屏刷新显示图片
-    EPD_HW_Init(); // 电子纸初始化
-    EPD_WhiteScreen_ALL(gImage_BW,gImage_R); // 全屏显示图片（黑白+红色）
-    EPD_DeepSleep(); // 进入深度睡眠，降低功耗
-    delay(3000);   // 延时3秒
+// void Z96epd__loop() {
+//   while(1)
+//   {
+//     // 1. 全屏刷新显示图片
+//     EPD_HW_Init(); // 电子纸初始化
+//     EPD_WhiteScreen_ALL(gImage_BW,gImage_R); // 全屏显示图片（黑白+红色）
+//     EPD_DeepSleep(); // 进入深度睡眠，降低功耗
+//     delay(3000);   // 延时3秒
 
-    // 2. 清屏
-    EPD_HW_Init(); // 重新初始化
-    EPD_WhiteScreen_ALL_Clean(); // 全屏清屏（全白）
-    EPD_DeepSleep(); // 再次进入深度睡眠
-    while(1); // 死循环，程序停止
-  }
-}
+//     // 2. 清屏
+//     EPD_HW_Init(); // 重新初始化
+//     EPD_WhiteScreen_ALL_Clean(); // 全屏清屏（全白）
+//     EPD_DeepSleep(); // 再次进入深度睡眠
+//     while(1); // 死循环，程序停止
+//   }
+// }
 
-
-///////////////////EXTERNAL FUNCTION////////////////////////////////////////////////////////////////////////
-/////////////////////delay//////////////////////////////////////
 /**
  * @brief 微秒级延时函数
  * @param xus 延时的微秒数
@@ -371,13 +369,13 @@ void EPD_WhiteScreen_ALL_s(EPD_Screen *s,const unsigned char *BW_datas,const uns
    Epaper_Write_Command_s(s, 0x26);
    for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
    {
-     Epaper_Write_Data_s(s, ~pgm_read_byte(&R_datas[i]));
+     Epaper_Write_Data_s(s, pgm_read_byte(&R_datas[i]));
    }
 
    EPD_Update_s(s);
 }
 
-// RAM-friendly full-screen update: reads data directly from RAM buffers (not PROGMEM)
+// 全屏清屏函数，写入全白数据
 void EPD_WhiteScreen_ALL_RAM_s(EPD_Screen *s,const unsigned char *BW_datas,const unsigned char *R_datas)
 {
    unsigned int i;
@@ -390,7 +388,7 @@ void EPD_WhiteScreen_ALL_RAM_s(EPD_Screen *s,const unsigned char *BW_datas,const
    Epaper_Write_Command_s(s, 0x26);
    for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
    {
-     Epaper_Write_Data_s(s, ~R_datas[i]);
+      Epaper_Write_Data_s(s, R_datas[i]);
    }
 
    EPD_Update_s(s);
@@ -492,6 +490,7 @@ void EPD_HW_Init(void)
 void EPD_WhiteScreen_ALL(const unsigned char *BW_datas,const unsigned char *R_datas)
 {
    unsigned int i;
+   
    // 1. 写入黑白数据到电子纸RAM
    Epaper_Write_Command(0x24);   // 0x24命令：写黑白RAM
    for(i=0;i<ALLSCREEN_GRAGHBYTES;i++)
@@ -572,9 +571,5 @@ void EPD_WhiteScreen_ALL_Clean(void)
    }
    EPD_Update();   
 }
-
-
-
-//////////////////////////////////END//////////////////////////////////////////////////
 
 #endif

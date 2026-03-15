@@ -1,9 +1,8 @@
-#ifndef IMAGE_DEMO_H
-#define IMAGE_DEMO_H
+#ifndef IMAGE_H
+#define IMAGE_H
 
 #include <ArduinoJson.h>    // 添加 JSON 解析库
 #include <HTTPClient.h>     // HTTP 客户端库
-#include <MD5Builder.h>    // MD5 计算库
 #include <JPEGDecoder.h>    // JPEG 解码库
 #include "epd_gdeh042Z96.h" // 电子纸驱动头文件
 
@@ -46,21 +45,6 @@ void downloadAndVerifyImage(const char* url, const char* expectedMd5) {
 
     free(buffer);
     
-    // 验证 MD5
-    // Serial.println("[INFO] Calculating MD5...");
-    // MD5Builder md5;
-    // md5.begin();
-    // md5.add(buffer, size);
-    // md5.calculate();
-    // String calculatedMd5 = md5.toString();
-    // Serial.print("[INFO] Calculated MD5: ");
-    // Serial.println(calculatedMd5); // 添加调试信息
-
-    // if (calculatedMd5 != expectedMd5) {
-    //     Serial.println("[ERROR] MD5 mismatch. Image download failed.");
-    //     free(buffer);
-    //     return;
-    // }
 }
 
-#endif // IMAGE_DEMO_H
+#endif // IMAGE_H
