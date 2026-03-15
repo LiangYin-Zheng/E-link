@@ -5,6 +5,10 @@
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 bool mqttReconnect();
 
+// 前置声明：在本文件较早处会调用这些上报函数，实际实现位于 mqtt_status.h
+void mqtt_report_status(const char* deviceCode, const char* status, const char* messageId, const char* error, unsigned long long timestamp);
+void mqtt_send_heartbeat(const char* deviceCode, const char* status, int currentContentId, const char* currentContentType, int battery, int signal, unsigned long long timestamp);
+
 #define MQTT_MAX_PACKET_SIZE 2048
 #include <PubSubClient.h>   // MQTT 客户端库
 #include <ArduinoJson.h>    // JSON 解析库
@@ -18,6 +22,9 @@ bool mqttReconnect();
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/queue.h>
+
+// 设备代码（与订阅命令的主题一致）
+#define DEVICE_CODE "01"
 
 // If PSRAM/heap_caps available, prefer allocating large buffers there
 #ifdef MALLOC_CAP_SPIRAM
@@ -43,6 +50,7 @@ static uint8_t *g_rBuf = NULL;             // R buffer (ALLSCREEN_GRAGHBYTES)
 typedef struct {
   char url[1024];
   char md5[128];
+    char messageId[128];
   uint32_t size;
   uint8_t screenId;
 } ImageTask;
@@ -57,11 +65,13 @@ static void imageWorkerTask(void* param) {
             HTTPClient http;
             http.begin(t.url);
             int httpCode = http.GET();
-            if (httpCode != HTTP_CODE_OK) {
-                Serial.print("[IMAGE WORKER] HTTP GET failed: "); Serial.println(httpCode);
-                http.end();
-                continue;
-            }
+                    if (httpCode != HTTP_CODE_OK) {
+                        Serial.print("[IMAGE WORKER] HTTP GET failed: "); Serial.println(httpCode);
+                        // report failure
+                        mqtt_report_status(DEVICE_CODE, "FAILURE", t.messageId[0] ? t.messageId : "", "HTTP_GET_FAILED", 0);
+                        http.end();
+                        continue;
+                    }
             WiFiClient *stream = http.getStreamPtr();
             long contentLenLL = http.getSize();
             Serial.print("[IMAGE WORKER] HTTP Content-Length: "); Serial.println(contentLenLL);
@@ -126,6 +136,7 @@ static void imageWorkerTask(void* param) {
                         }
                     }
                     totalRead += toRead;
+                    taskYIELD();
                 }
 
                 // If we read less than expected, fill remaining with defaults
@@ -180,8 +191,10 @@ static void imageWorkerTask(void* param) {
                             } else {
                                 // beyond display capacity, discard
                             }
+                            if ((i & 0xFF) == 0) taskYIELD();
                         }
                         totalRead += toRead;
+                        taskYIELD();
                     }
 
                     // If stream ended early, pad remaining bytes on-device
@@ -201,6 +214,8 @@ static void imageWorkerTask(void* param) {
                     EPD_DeepSleep_s(target);
                     xSemaphoreGive(displayMutex);
                     Serial.println("[IMAGE WORKER] released display mutex (direct stream)");
+                                        // report success to backend
+                                        mqtt_report_status(DEVICE_CODE, "SUCCESS", t.messageId[0] ? t.messageId : "", "", 0);
                 } else {
                     Serial.println("[IMAGE WORKER] failed to acquire display mutex for direct stream, draining");
                     // drain and discard using expectedLen as total length
@@ -241,6 +256,7 @@ static void imageWorkerTask(void* param) {
                         stream->readBytes(tmp, toRead);
                         memcpy(g_imageBuf + totalRead, tmp, toRead);
                         totalRead += toRead;
+                        taskYIELD();
                     }
                 } else {
                     // failed to allocate temp buffer — drain stream and skip
@@ -293,6 +309,8 @@ static void imageWorkerTask(void* param) {
                             EPD_DeepSleep_s(target);
                             xSemaphoreGive(displayMutex);
                             Serial.println("[IMAGE WORKER] released display mutex");
+                                                        // report success to backend
+                                                        mqtt_report_status(DEVICE_CODE, "SUCCESS", t.messageId[0] ? t.messageId : "", "", 0);
                         } else {
                             Serial.println("[IMAGE WORKER] failed to acquire display mutex");
                         }
@@ -321,11 +339,14 @@ static void imageWorkerTask(void* param) {
                         }
                     }
 
-                    EPD_HW_Init_s(target);
-                    EPD_WhiteScreen_ALL_RAM_s(target, g_displayBuf, g_rBuf ? g_rBuf : (const unsigned char*)gImage_R);
-                    EPD_DeepSleep_s(target);
-                    xSemaphoreGive(displayMutex);
-                    Serial.println("[IMAGE WORKER] released display mutex");
+                                        EPD_HW_Init_s(target);
+                                        EPD_WhiteScreen_ALL_RAM_s(target, g_displayBuf, g_rBuf ? g_rBuf : (const unsigned char*)gImage_R);
+                                        EPD_DeepSleep_s(target);
+                                        xSemaphoreGive(displayMutex);
+                                        Serial.println("[IMAGE WORKER] released display mutex");
+                                        // report success to backend
+                                        // report success to backend
+                                        mqtt_report_status(DEVICE_CODE, "SUCCESS", t.messageId[0] ? t.messageId : "", "", 0);
                 } else {
                     Serial.println("[IMAGE WORKER] failed to acquire display mutex");
                 }
@@ -337,6 +358,8 @@ static void imageWorkerTask(void* param) {
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+
+#include "mqtt_status.h"
 
 #define MQTT_SERVER "broker.emqx.io"
 #define MQTT_PORT 1883
@@ -425,6 +448,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     memset(&task,0,sizeof(task));
     strncpy(task.url, url, sizeof(task.url)-1);
     if (md5) strncpy(task.md5, md5, sizeof(task.md5)-1);
+    if (messageId) strncpy(task.messageId, messageId, sizeof(task.messageId)-1);
     task.size = size;
     task.screenId = screenId;
 

@@ -20,6 +20,7 @@
 #include "mqtt.h"
 #include "epd_gdeh042Z96.h"
 #include "mqtt_client.h"
+#include "mqtt_status.h"
 
 // 全局显示互斥量，防止同时对两块屏幕并发刷新
 SemaphoreHandle_t displayMutex = NULL;
@@ -106,6 +107,15 @@ void loop()
 
     // MQTT循环 检测连接状态并处理消息
     mqtt__loop();
+
+    // 每60秒发送一次心跳
+    static unsigned long lastHeartbeat = 0;
+    if (millis() - lastHeartbeat >= 10000UL) {
+      lastHeartbeat = millis();
+      int battery = 100; // 如果有电池测量逻辑可以替换
+      int signal = WiFi.RSSI();
+        mqtt_send_heartbeat(DEVICE_CODE, "ONLINE", 0, "NONE", battery, signal, 0);
+    }
     
 
 }
