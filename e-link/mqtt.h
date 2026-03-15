@@ -4,8 +4,6 @@
 // 提前声明
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 bool mqttReconnect();
-
-// 前置声明：在本文件较早处会调用这些上报函数，实际实现位于 mqtt_status.h
 void mqtt_report_status(const char* deviceCode, const char* status, const char* messageId, const char* error, unsigned long long timestamp);
 void mqtt_send_heartbeat(const char* deviceCode, const char* status, int currentContentId, const char* currentContentType, int battery, int signal, unsigned long long timestamp);
 
